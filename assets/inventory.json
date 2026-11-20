@@ -632,11 +632,74 @@
       "usageRights": "generated"
     },
     {
-      "source": "assets/tilesets/sidewalk-tileset.png",
-      "width": 1536,
-      "height": 1024,
-      "bytes": 1687135,
-      "usageRights": "generated"
+          "source": "assets/tilesets/sidewalk-tileset.png",
+          "width": 1536,
+          "height": 1024,
+          "bytes": 1687135,
+          "usageRights": "generated"
+        },
+        {
+          "source": "assets/backgrounds/dorm-room-shared.png",
+          "width": 1642,
+          "height": 958,
+          "bytes": 1970331,
+          "usageRights": "generated"
+        },
+        {
+          "source": "assets/backgrounds/dorm-room-portal-escape.png",
+          "width": 1642,
+          "height": 958,
+          "bytes": 1845123,
+          "usageRights": "generated"
+        },
+        {
+          "source": "assets/backgrounds/moonlit-dorm-void-doorway.png",
+          "width": 1642,
+          "height": 958,
+          "bytes": 1569936,
+          "usageRights": "generated"
+        },
+        {
+          "source": "assets/backgrounds/campus-library-approach.png",
+          "width": 1642,
+          "height": 958,
+          "bytes": 2927099,
+          "usageRights": "generated"
+        },
+        {
+          "source": "assets/backgrounds/post-apocalyptic-clinic.png",
+          "width": 1642,
+          "height": 958,
+          "bytes": 2312373,
+          "usageRights": "generated"
+        },
+        {
+          "source": "assets/backgrounds/clinic-window-city-view.png",
+          "width": 1672,
+          "height": 941,
+          "bytes": 2390059,
+          "usageRights": "generated"
+        },
+        {
+          "source": "assets/backgrounds/post-apocalyptic-courtyard-camp.png",
+          "width": 1642,
+          "height": 958,
+          "bytes": 2707397,
+          "usageRights": "generated"
+        },
+        {
+          "source": "assets/backgrounds/twilight-library-courtyard-encounter.png",
+          "width": 1642,
+          "height": 958,
+          "bytes": 2810457,
+          "usageRights": "generated"
+        },
+        {
+          "source": "assets/backgrounds/twilight-ruins-warehouse-yard.png",
+          "width": 1642,
+          "height": 958,
+          "bytes": 2685537,
+          "usageRights": "generated"
+        }
+      ]
     }
-  ]
-}
