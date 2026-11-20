@@ -11,6 +11,7 @@ export const characters = [
   { id: 'news-reporter', name: 'News Reporter', role: 'Television broadcast' },
   { id: 'kingsleys-girlfriend', name: 'Kingsley’s girlfriend', role: 'Brief dorm scene' },
   { id: 'lina', name: 'Lina', role: 'Local civilian rescued by K; new art required' },
+  { id: 'civilian', name: 'Civilian', role: 'Local civilian at the ration line' },
 ] as const;
 
 export type CharacterId = typeof characters[number]['id'];

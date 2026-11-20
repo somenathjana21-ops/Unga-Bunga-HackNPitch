@@ -385,6 +385,20 @@
       "height": 1536,
       "bytes": 2346478,
       "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/backgrounds/default-background.png",
+      "width": 1280,
+      "height": 720,
+      "bytes": 5303,
+      "usageRights": "temporary placeholder"
+    },
+    {
+      "source": "assets/backgrounds/default-template.png",
+      "width": 1280,
+      "height": 720,
+      "bytes": 7434,
+      "usageRights": "temporary placeholder"
     }
   ]
 }

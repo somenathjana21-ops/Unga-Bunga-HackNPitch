@@ -177,6 +177,20 @@
       "output": "characters/sayu/sayu-speaking-pose.png",
       "width": 1024,
       "height": 1536
+    },
+    {
+      "id": "default-background",
+      "source": "assets/backgrounds/default-background.png",
+      "output": "backgrounds/default-background.png",
+      "width": 1280,
+      "height": 720
+    },
+    {
+      "id": "default-template",
+      "source": "assets/backgrounds/default-template.png",
+      "output": "backgrounds/default-template.png",
+      "width": 1280,
+      "height": 720
     }
   ]
 }
