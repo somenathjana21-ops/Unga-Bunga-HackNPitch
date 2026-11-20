@@ -515,3 +515,18 @@ Add concise entries at the bottom; do not rewrite prior entries to make earlier 
 - Handoff / integration: Local workspace edits only (no `.git` repo in container).
 
 - **20 November 2026 - FIX-MAI-PROGRESS-001:** identified and fixed why progression stopped after Mai appeared: `cutscene-player.ts` never unhid `#cutscene` after `c01` (`el.hidden = true`), left `Next` disabled, failed to re-render shots on advance, stacked duplicate listeners, and leaked `Esc` to `WorldScene`; `WorldScene.ts` also used wrong scene key `'RescueScene'` instead of `'rescue'` at the settlement east gate and carried `"Check the door."` into Clinic. Verified with `npm run check` (21/21 tests) and full Chromium playthrough through Rescue. Note: `.git` is absent in this workspace so a branch could not be created here.
+
+### BG-FIX-001 - exploration background visible behind tile grid
+
+- Status: Done (branch only)
+- Agent/session: OpenCode / bg-fix-20261121
+- Human owner: Project creator
+- Branch/worktree: `fix/world-backgrounds-visible`, `C:/Users/Vaibhav Goyal/OneDrive/Desktop/Want/Unga-Bunga-HackNPitch`
+- Started / last updated: 21 November 2026 (Asia/Calcutta)
+- Scope / owned files: `src/game/scenes/WorldScene.ts` (`drawMap` floor/wall rendering). No map data, asset, manifest, or dependency changes.
+- Acceptance criteria: when a map has a `backgroundImageId`, the backdrop image shows through the floor cells instead of being hidden behind dark grid boxes; walls remain readable as obstacles; doors keep their amber marker; maps without a background keep the existing dark checkerboard fallback; `npm run check` passes (assets:check, strict TypeScript, tests, production build).
+- Completed so far: diagnosed root cause — `drawMap()` drew dark floor rectangles for every `.` cell on top of the depth -1 background sprite, hiding the integrated campus/library/dorm/clinic/settlement backdrops. Fixed `drawMap()` so floor cells are transparent when a backdrop is set (walls get a subtle semi-transparent dark overlay, doors keep their amber marker; the dark checkerboard fallback is preserved for maps without a background).
+- Verification: 21 November 2026 — `npm run check` passed: assets:check validates 90 runtime assets, strict TypeScript clean, 19/19 tests pass, production build succeeds (expected Phaser chunk-size warning only).
+- Blockers / remaining work: manual visual playthrough (campus background visible behind grid) still pending — no visible desktop/browser in this environment.
+- Next action: commit the change on `fix/world-backgrounds-visible`; ready for review/integration via PR.
+- Handoff / integration: branch only until integrated via PR.
