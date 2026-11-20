@@ -2,6 +2,12 @@ import './styles.css';
 import { difficultyRules } from './game/rules';
 import type { Difficulty } from './game/rules';
 
+// Development-only launch path for the isolated combat arena. Never shipped in the
+// production build and never touches the story preview routing.
+const devCombatButton = import.meta.env.DEV
+  ? '<button id="dev-combat-test" class="secondary">Combat test (dev)</button>'
+  : '';
+
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <main class="shell">
     <section class="menu" id="menu" aria-labelledby="title">
@@ -19,6 +25,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
         <div class="actions">
           <button id="start-preview" class="primary">Explore the preview <span aria-hidden="true">↗</span></button>
           <button id="open-controls" class="secondary">Controls & accessibility</button>
+          {devCombatButton}
         </div>
         <p class="build-note">Foundation preview · Story campaign in development</p>
       </div>
@@ -66,7 +73,7 @@ document.querySelectorAll<HTMLInputElement>('input[name="difficulty"]').forEach(
   });
 });
 
-start.addEventListener('click', async () => {
+async function launchGame(sceneKey: 'preview' | 'combat', modeLabel: string) {
   if (launching || game) return;
   launching = true;
   start.disabled = true;
@@ -74,11 +81,10 @@ start.addEventListener('click', async () => {
   errorBox.hidden = true;
   try {
     const { createGame } = await import('./game/create-game');
-    const difficulty = document.querySelector<HTMLInputElement>('input[name="difficulty"]:checked')!.value as Difficulty;
-    document.querySelector('#mode-label')!.textContent = `${difficultyRules[difficulty].label} · Movement test room`;
+    document.querySelector('#mode-label')!.textContent = modeLabel;
     menu.hidden = true;
     preview.hidden = false;
-    game = createGame(gameHost);
+    game = createGame(gameHost, sceneKey);
     preview.scrollIntoView({ block: 'start' });
     gameHost.focus({ preventScroll: true });
   } catch {
@@ -91,7 +97,19 @@ start.addEventListener('click', async () => {
     start.disabled = false;
     start.textContent = 'Explore the preview ↗';
   }
+}
+
+start.addEventListener('click', async () => {
+  const difficulty = document.querySelector<HTMLInputElement>('input[name="difficulty"]:checked')!.value as Difficulty;
+  await launchGame('preview', `${difficultyRules[difficulty].label} · Movement test room`);
 });
+
+if (import.meta.env.DEV) {
+  const devCombat = document.querySelector<HTMLButtonElement>('#dev-combat-test');
+  devCombat?.addEventListener('click', async () => {
+    await launchGame('combat', 'Combat test (dev) · Story Mode');
+  });
+}
 
 document.querySelector('#back-to-menu')!.addEventListener('click', () => {
   game?.destroy(true);
