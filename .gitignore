@@ -1,0 +1,11 @@
+# Dependencies (dev only; the game itself ships none)
+node_modules/
+
+# Generated check output
+tests/artifacts/
+*.log
+
+# OS cruft
+.DS_Store
+Thumbs.db
+desktop.ini

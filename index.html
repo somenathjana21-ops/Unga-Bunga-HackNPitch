@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="description" content="WANT — a story-driven 2D top-down browser game." />
+    <title>WANT</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23070a10'/%3E%3Ctext x='16' y='23' font-family='monospace' font-size='20' fill='%23e8b45a' text-anchor='middle'%3EW%3C/text%3E%3C/svg%3E"
+    />
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #04060a;
+      }
+
+      body {
+        display: grid;
+        place-items: center;
+      }
+
+      #game {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+        height: 100dvh;
+        outline: none;
+        touch-action: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      #boot-error {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 32px;
+        background: #08040a;
+        color: #ffb4a8;
+        font: 14px/1.6 Consolas, "Courier New", monospace;
+        text-align: center;
+        white-space: pre-wrap;
+      }
+
+      #boot-error[hidden] {
+        display: none;
+      }
+
+      noscript {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: #08040a;
+        color: #e8b45a;
+        font: 14px/1.6 Consolas, "Courier New", monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="game" aria-label="WANT game viewport" role="img"></canvas>
+
+    <div id="boot-error" hidden></div>
+
+    <noscript>WANT needs JavaScript and an ES-module capable browser.</noscript>
+
+    <script>
+      // Show a readable failure screen instead of a blank canvas if a module fails.
+      window.addEventListener("error", function (event) {
+        const panel = document.getElementById("boot-error");
+        if (!panel) return;
+        panel.hidden = false;
+        panel.textContent =
+          "WANT failed to boot.\n\n" +
+          (event.message || "Unknown error.") +
+          "\n\nOpen the browser console for details.";
+      });
+    </script>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
