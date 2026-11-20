@@ -2,7 +2,7 @@
 
 **Read this at the start of every task. Update it before editing, after meaningful progress or a blocker, and before handing work back.** The detailed rules are in [AGENTS.md](AGENTS.md).
 
-Last updated: 14 November 2026 (Asia/Calcutta).
+Last updated: 20 November 2026 (Asia/Calcutta).
 
 This is the authoritative record of implementation status and agent handoffs. [The task board](docs/TASK_BOARD.md) supplies the planned ownership and dependencies; [decisions](docs/DECISIONS.md) define the agreed game; [verification](docs/VERIFICATION.md) holds detailed test evidence. The PDFs are planning snapshots, not live progress trackers.
 
@@ -36,7 +36,7 @@ Do not turn an entire phase to Done because one task or placeholder is finished.
 | P1 | Exploration world | Not started | Real campus/dorm/camp maps; preview room is only a proof. |
 | P2 | Dialogue and opening story | Not started | Playable opening through settlement, including skip/read paths. |
 | P3 | Real-time combat | Not started | Pistol, dodge, enemies, counter, both difficulties, fair damage. |
-| P4 | Cutscenes, audio and settings | Not started | Media, mute, captions, reduced motion, reliable skip. |
+| P4 | Cutscenes, audio and settings | In progress | P4-001 cutscene player, audio buses and persisted settings on branch `phase-4-cutscene-slice`; human playthrough and integration pending. |
 | P5 | Rescue and ending | Not started | Complete route, all failure/retry paths, milestone recovery. |
 | P6-LOCAL | Continue/local saves and Vercel release | Not started | Helpers/config exist; campaign wiring and deployed checks remain. |
 | P6-CLOUD | Optional Supabase authentication/saves | Deferred | After local saves; live isolation and conflict checks required. |
@@ -245,6 +245,21 @@ Copy this template as a new subsection; replace the placeholders:
 - Next action: the Phase 1 owner claims the campus-to-library exploration slice per the task board.
 - Handoff / integration: pushed to `origin/master`; the commit hash and remote verification are recorded in the activity log below.
 
+### P4-001 - cutscene ledger player, audio buses and persisted settings
+
+- Status: In progress
+- Agent/session: OpenCode / phase-4-cutscene-20261120
+- Human owner: Unassigned
+- Branch/worktree: `phase-4-cutscene-slice`, `C:/Users/somen/OneDrive/Desktop/want-main`, branched from `master` (`d24ebae`). The existing `phase-1-campus-slice` checkout was left untouched; this branch intentionally excludes the unreviewed Phase 1 slice.
+- Started / last updated: 20 November 2026 (Asia/Calcutta)
+- Scope / owned files: `src/content/cutscenes/ledger.ts` (new), `src/game/cutscene/playback.ts` (new), `src/services/preferences.ts` (new), `src/services/audio.ts` (new), `src/ui/cutscene-player.ts` (new), `src/ui/settings-panel.ts` (new), `src/main.ts` (settings dialog, audio unlock, `?cutscene=` development route), `src/styles.css` (settings and cutscene styles), `tests/cutscene.test.ts` (new), `docs/ARCHITECTURE.md`, `docs/ASSET_CHECKLIST.md` (credits ledger), `docs/VERIFICATION.md`, `README.md`, `PROGRESS.md`. No changes to `RunState`, the save schema, combat rules, maps or `PreviewScene`.
+- Acceptance criteria: all four cutscenes in docs/PLAYTHROUGH.md section 13 play as still-image tracks with captions, a visible Skip scene / Next control, restrained pan or zoom, and a labelled placeholder wherever supplied art does not exist; no character still is presented as an environment; sound and music start only after a user gesture, with master/music/effects volume and mute persisted locally; reduced motion removes pan and shake; skip and normal completion produce the same story flags exactly once; the app stays runnable and `npm run check` passes.
+- Completed so far: ledger data for C01-C04 using existing supplied speaking portraits (never presented as environments) and labelled text cards for missing environment/machine art; pure playback controller with skip==normal-completion exactly-once guarantee and unit tests; DOM cutscene player with Skip/Next/Finish controls, Escape to skip, Enter/Space to advance, auto-advance, restrained CSS pan/zoom, video-with-still/text fallback on load/play rejection; synthesized music and effects (no supplied audio files); settings panel with master/music/effects volume, mute, reduced motion, persisted to localStorage; audio unlock bound to the first Start/Settings gesture; `?cutscene=` dev route; settings button on the menu.
+- Verification: 20 November 2026. `npm run check` passes (assets:check validates 19 runtime assets, strict TypeScript clean, 15/15 tests including 8 new cutscene tests, production build with expected Phaser chunk warning). Browser/manual cutscene checks Not run: no visible desktop/browser available in this environment; video fallback not exercised because no video is supplied.
+- Blockers / remaining work: Lina, machine and environment art are still missing, so C02-C04 environment shots use labelled text cards. No supplied audio or video files, so audio is synthesized and video fallback code is dormant. Human playthrough of cutscenes, audio unlock, mute persistence and reduced motion pending a machine with visible output.
+- Next action: human playthrough verification of cutscenes and settings; then PR to main per TEAM_WORKFLOW.md.
+- Handoff / integration: branch only; not integrated into `main`.
+
 ## Coordination rules
 
 - Read the newest available tracker and inspect the actual files/branch before claiming work. A claim is an ownership note, not a filesystem lock.
@@ -293,3 +308,5 @@ Add concise entries at the bottom; do not rewrite prior entries to make earlier 
 - **14 November 2026 - ART-REV-001 - OpenCode:** the project creator approved all 22 revised PNGs. Integration verification reran `npm run check` on the full working tree (19 assets validated, strict TypeScript, 7 tests, production build; expected Phaser size warning) before committing. Committed the art revisions, manifest, checklist/architecture/prompt-guide updates and the PDF together with the tracker, then pushed to `origin/main`; the verified remote hash is recorded in the follow-up entry.
 - **14 November 2026 - ART-REV-001 - OpenCode:** publication recorded. `git ls-remote` confirmed `origin/main` at `3e3e56c80b26e97ac3b161d0a5cd7340bde08d8e` after the push; working tree clean. Remaining open items: usage rights/credits confirmation (operational task in `docs/DECISIONS.md`) and the Phase 2 handoff of the approved speaking portraits.
 - **20 November 2026 - PUBLISH-001 - OpenCode:** published the foundation workspace to the configured remote `Unga-Bunga-HackNPitch`. This checkout had an empty `master`; based the snapshot on `origin/master` `7bcda3d` so the supplied art appears as renames into `assets/characters/`. Passed `npm ci`, `npm run check` (19 assets, TypeScript, 7 tests, build; expected Phaser warning) and `npm test` (7/7) before committing. Committed as `d24ebae` and pushed to `origin/master`; `git ls-remote` confirmed `d24ebae4a26702554cdf035acca23b4466e5291b` and the working tree was clean. `phase/0-scaffold` untouched.
+
+- **20 November 2026 - P4-001 - OpenCode:** implemented the Phase 4 cutscene ledger on branch `phase-4-cutscene-slice` (branched from `master` `d24ebae`). Added `src/content/cutscenes/ledger.ts` (C01-C04 shots with captions, restrained pan/zoom, existing supplied portraits only, labelled cards for missing environment art), `src/game/cutscene/playback.ts` (pure controller with skip==normal-completion exactly-once), `src/services/audio.ts` (synthesized music/effects, unlock on user gesture, master/music/effects buses), `src/services/preferences.ts` (localStorage master/music/effects/mute/reduced-motion), `src/ui/cutscene-player.ts` (DOM overlay with Skip/Next/Finish, Escape to skip, Enter/Space advance, auto-advance, video-with-still fallback), `src/ui/settings-panel.ts`, and wired `src/main.ts` (settings button, audio unlock on first gesture, `?cutscene=` dev route). Added `tests/cutscene.test.ts`. Updated `docs/ASSET_CHECKLIST.md` credits ledger and `docs/ARCHITECTURE.md` Phase 4 row. `npm run check` passes (19 assets, TypeScript, 15/15 tests, production build). Browser/manual cutscene, audio unlock, mute persistence and reduced-motion checks Not run: no visible desktop/browser available; no supplied audio/video files.

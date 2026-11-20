@@ -1,6 +1,10 @@
 import './styles.css';
 import { difficultyRules } from './game/rules';
 import type { Difficulty } from './game/rules';
+import { playCutsceneOverlay, destroyCutscenePlayer } from './ui/cutscene-player';
+import { openSettingsPanel } from './ui/settings-panel';
+import { loadPreferences, savePreferences, DEFAULT_PREFERENCES } from './services/preferences';
+import { audio } from './services/audio';
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <main class="shell">
@@ -18,7 +22,8 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
         <p id="difficulty-note" class="hint">Half enemy health and damage. Four hits from full health.</p>
         <div class="actions">
           <button id="start-preview" class="primary">Explore the preview <span aria-hidden="true">↗</span></button>
-          <button id="open-controls" class="secondary">Controls & accessibility</button>
+          <button id="open-settings" class="secondary">Settings &amp; accessibility</button>
+          <button id="open-controls" class="secondary">Controls &amp; accessibility</button>
         </div>
         <p class="build-note">Foundation preview · Story campaign in development</p>
       </div>
@@ -50,14 +55,51 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
 const menu = document.querySelector<HTMLElement>('#menu')!;
 const preview = document.querySelector<HTMLElement>('#preview')!;
 const start = document.querySelector<HTMLButtonElement>('#start-preview')!;
+const settingsBtn = document.querySelector<HTMLButtonElement>('#open-settings')!;
 const gameHost = document.querySelector<HTMLDivElement>('#game')!;
 const errorBox = document.querySelector<HTMLElement>('#error')!;
 let game: { destroy: (removeCanvas: boolean) => void } | undefined;
 let launching = false;
 
+// Preferences flow into the audio engine and the cutscene player. Load once;
+// every change saves and re-applies audio levels immediately.
+let preferences = (() => {
+  const stored = loadPreferences();
+  return stored.status === 'ok' ? stored.preferences : { ...DEFAULT_PREFERENCES };
+})();
+audio.configure({
+  master: preferences.master,
+  music: preferences.music,
+  effects: preferences.effects,
+  muted: preferences.muted,
+});
+
+const savePrefs = (next: typeof preferences): void => {
+  preferences = next;
+  savePreferences(next);
+  audio.configure({
+    master: next.master,
+    music: next.music,
+    effects: next.effects,
+    muted: next.muted,
+  });
+};
+
+settingsBtn.addEventListener('click', () => {
+  openSettingsPanel({
+    preferences,
+    onChange: savePrefs,
+    onClose: () => {
+      // Focus returns to the settings button so keyboard users stay oriented.
+      settingsBtn.focus({ preventScroll: true });
+    },
+  });
+});
+
 document.querySelector('#open-controls')!.addEventListener('click', () => {
   document.querySelector<HTMLDialogElement>('#controls')!.showModal();
 });
+
 document.querySelectorAll<HTMLInputElement>('input[name="difficulty"]').forEach((input) => {
   input.addEventListener('change', () => {
     document.querySelector('#difficulty-note')!.textContent = input.value === 'story'
@@ -65,6 +107,21 @@ document.querySelectorAll<HTMLInputElement>('input[name="difficulty"]').forEach(
       : 'Two hits from full health. Damage persists until a major achievement.';
   });
 });
+
+// First genuine user gesture unlocks the audio graph. Sound and music never
+// start before this point.
+const unlockAudioOnce = (): void => {
+  audio.unlock();
+};
+const bindUnlock = (element: HTMLElement): void => {
+  element.addEventListener('click', unlockAudioOnce, { once: true });
+  element.addEventListener('keydown', ((event: Event) => {
+    const keyboard = event as KeyboardEvent;
+    if (keyboard.key === 'Enter' || keyboard.key === ' ') unlockAudioOnce();
+  }) as EventListener, { once: true });
+};
+bindUnlock(start);
+bindUnlock(settingsBtn);
 
 start.addEventListener('click', async () => {
   if (launching || game) return;
@@ -96,8 +153,27 @@ start.addEventListener('click', async () => {
 document.querySelector('#back-to-menu')!.addEventListener('click', () => {
   game?.destroy(true);
   game = undefined;
+  destroyCutscenePlayer();
   preview.hidden = true;
   menu.hidden = false;
   document.querySelector('#preview-status')!.textContent = 'Walk to the amber marker, then press E.';
   start.focus();
 });
+
+// Development route: `?cutscene=c01` plays a cutscene directly instead of the
+// preview, so contributors can review cutscenes without replaying the opening.
+const cutsceneId = new URLSearchParams(window.location.search).get('cutscene');
+if (cutsceneId) {
+  menu.hidden = true;
+  preview.hidden = true;
+  audio.unlock();
+  playCutsceneOverlay({
+    cutsceneId,
+    reducedMotion: preferences.reducedMotion === 'reduce',
+    onComplete: () => {
+      menu.hidden = false;
+      preview.hidden = true;
+      start.focus();
+    },
+  });
+}

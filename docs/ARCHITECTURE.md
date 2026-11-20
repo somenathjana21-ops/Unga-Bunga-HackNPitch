@@ -41,7 +41,7 @@ want/
 | 1 | `src/game/scenes/WorldScene.ts`, `src/content/maps/` | Grid movement, collisions, NPC positions, interaction triggers. |
 | 2 | `src/content/dialogue/`, `src/game/scenes/DialogueScene.ts` | Typed story beats and readable dialogue; no world input while talking. |
 | 3 | `src/game/scenes/CombatScene.ts`, `src/game/combat/` | Continuous movement, bullets, telegraphs, dodge/counter, enemy caps. |
-| 4 | `src/content/cutscenes/`, `src/game/scenes/CutsceneScene.ts` | Still-image tracks, captions, skip, audio unlock, video fallback if needed. |
+| 4 | `src/content/cutscenes/ledger.ts`, `src/game/cutscene/playback.ts`, `src/ui/cutscene-player.ts`, `src/services/audio.ts`, `src/services/preferences.ts` | Still-image tracks, captions, skip/advance, audio unlock after gesture, master/music/effects volume and mute, persisted preferences, reduced motion, video-with-still fallback. |
 | 5 | `src/content/encounters/`, `src/game/campaign-controller.ts` | Rescue beats, story gating, one-time milestones, failure and retry. |
 | 6 | `src/ui/`, `src/services/cloud-save.ts` | Continue/settings/save messages; optional cloud auth and conflict UI. |
 | Later | `src/game/horde/` | Separate run state and progression; no campaign dependence. |

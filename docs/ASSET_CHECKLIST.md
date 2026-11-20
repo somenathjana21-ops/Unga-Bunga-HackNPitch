@@ -67,6 +67,8 @@ Record a row for every new pack, track, generated image or external asset. Exist
 | 22 character revisions, 10 November 2026 | OpenAI image generation using the supplied art, with two 48 px atlas exports assembled from edited pose art | Confirm rights to the source art and event use | Pending confirmation | Visual and format checks complete. Scene-specific checks pending. [Prompt IDs and art files](../WANT-Asset-Generation-Prompts.md#13-character-art-revisions) |
 | New Lina art | Not created yet | Record when created | Record when created | Missing |
 | Environment/machine art | Not selected yet | Record exact pack/source | As required | Missing |
-| Sound/music | Not selected yet | Record exact files/source | As required | Missing |
+| Cutscene audio cues (UI confirm, phone end, metal drop, power cut, machine shriek, gunshot, muffled blast, wind, machinery, gate open, resolve) | Synthesized at runtime in `src/services/audio.ts` (no external files) | WANT code, no third-party samples | WANT | Implemented; volumes persisted via `src/services/preferences.ts` |
+| Cutscene stills/portraits used (C01-C04) | Existing supplied speaking portraits: sayu, nero, man-1, man-2, mai | Confirm with creator (supplied 55 PNGs) | To be confirmed | Environment shots use labelled text cards; no supplied environment art exists yet |
+| Sound/music (future packs) | Not selected yet | Record exact files/source | As required | Missing |
 
 Check the hackathon's rules on generated assets and prebuilt materials with the organizer. Keep the credits ledger in the repository so every teammate uses the same approved pool.
