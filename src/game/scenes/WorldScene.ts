@@ -174,6 +174,16 @@ export class WorldScene extends Phaser.Scene {
       const name = characterNames[npc.characterId] ?? npc.characterId;
 
       const sprite = this.add.sprite(centerX, topY + 24, spriteKey, 0).setDepth(10);
+      // Pulse the quest NPC so it is unmistakable on a dark, empty map.
+      this.tweens.add({
+        targets: sprite,
+        scaleX: 1.06,
+        scaleY: 1.06,
+        duration: 900,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
       this.npcSprites.set(npc.id, sprite);
 
       // Name plate under the character so quest NPCs are identifiable at a glance.
@@ -414,9 +424,10 @@ export class WorldScene extends Phaser.Scene {
       this.progress.objective = 'Speak to Mai.';
       this.objectiveText.setText(`Objective: ${this.progress.objective}`);
     } else if (completionFlag === 'library-hachimi-met') {
-      // Auto-trigger the bracelet scene — Hachimi steps aside and K sees Sayu and Nero
-      this.time.delayedCall(800, () => this.startDialogue('library-bracelet-scene'));
-      return;
+      // Hachimi steps aside and K sees Sayu and Nero — start the bracelet scene
+      // immediately so there is no window where Hachimi has vanished but the
+      // follow-up scene has not begun.
+      this.startDialogue('library-bracelet-scene');
     } else if (completionFlag === 'library-breakup-done') {
       this.progress.objective = 'Go home.';
       this.objectiveText.setText(`Objective: ${this.progress.objective}`);
