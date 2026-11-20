@@ -33,7 +33,7 @@ Do not turn an entire phase to Done because one task or placeholder is finished.
 | --- | --- | --- | --- |
 | P0-FOUNDATION | Runnable starter, rules, guides and assets | Done | Snapshot `0c507d8` on local `main`. Evidence in `docs/VERIFICATION.md`. |
 | P0-TEAM | Team-machine checks, owner assignment, shared remote and event requirements | Done | Gate closed on the project creator's sign-off on 9 November 2026. Movement confirmed on all machines. Team E retest, roster, interface sign-off and organizer clarification are tracked as follow-ups below. |
-| P1 | Exploration world | Not started | Real campus/dorm/camp maps; preview room is only a proof. |
+| P1 | Exploration world | In progress | P1-001 campus slice on branch `phase-1-campus-slice`; `npm run check` clean; human playthrough pending. |
 | P2 | Dialogue and opening story | Not started | Playable opening through settlement, including skip/read paths. |
 | P3 | Real-time combat | Not started | Pistol, dodge, enemies, counter, both difficulties, fair damage. |
 | P4 | Cutscenes, audio and settings | Not started | Media, mute, captions, reduced motion, reliable skip. |
@@ -293,3 +293,18 @@ Add concise entries at the bottom; do not rewrite prior entries to make earlier 
 - **14 November 2026 - ART-REV-001 - OpenCode:** the project creator approved all 22 revised PNGs. Integration verification reran `npm run check` on the full working tree (19 assets validated, strict TypeScript, 7 tests, production build; expected Phaser size warning) before committing. Committed the art revisions, manifest, checklist/architecture/prompt-guide updates and the PDF together with the tracker, then pushed to `origin/main`; the verified remote hash is recorded in the follow-up entry.
 - **14 November 2026 - ART-REV-001 - OpenCode:** publication recorded. `git ls-remote` confirmed `origin/main` at `3e3e56c80b26e97ac3b161d0a5cd7340bde08d8e` after the push; working tree clean. Remaining open items: usage rights/credits confirmation (operational task in `docs/DECISIONS.md`) and the Phase 2 handoff of the approved speaking portraits.
 - **20 November 2026 - PUBLISH-001 - OpenCode:** published the foundation workspace to the configured remote `Unga-Bunga-HackNPitch`. This checkout had an empty `master`; based the snapshot on `origin/master` `7bcda3d` so the supplied art appears as renames into `assets/characters/`. Passed `npm ci`, `npm run check` (19 assets, TypeScript, 7 tests, build; expected Phaser warning) and `npm test` (7/7) before committing. Committed as `d24ebae` and pushed to `origin/master`; `git ls-remote` confirmed `d24ebae4a26702554cdf035acca23b4466e5291b` and the working tree was clean. `phase/0-scaffold` untouched.
+
+### P1-001 - campus exploration slice with NPC, interactable and door
+
+- Status: Done (branch only)
+- Agent/session: OpenCode / phase-1-campus-20261120
+- Human owner: Unassigned
+- Branch/worktree: `phase-1-campus-slice`, `C:/Users/somen/OneDrive/Desktop/want-main`
+- Started / last updated: 20 November 2026 (Asia/Calcutta)
+- Scope / owned files: `src/content/maps/campus.ts` (new), `src/game/scenes/WorldScene.ts` (new), `src/game/create-game.ts` (edit: register WorldScene + `?world` dev route), `src/styles.css` (edit: objective/E prompt/dialogue styles). Preview scene and preview-room map left untouched.
+- Acceptance criteria: four-direction grid steps with solid collisions, bounded camera, K + one NPC + one interactable + one door, NPC interaction requires adjacency and facing, visible current objective + E prompt, movement blocked while dialogue open, map data under src/content/maps, behavior in WorldScene, combat coordinate system separate, preview preserved as dev route, `npm run check` clean.
+- Completed so far: campus + library rooms (16×9 tiles) with K spawn, Hachimi NPC, wallet interactable, library/campus doors; WorldScene grid movement (one tween at a time), solid wall/NPC collision, camera bounds, adjacency+facing gated NPC dialogue, objective/E-prompt overlays, door room transition; create-game registers WorldScene behind `?world` preserving the default preview route; defensive idempotent UI cleanup fixed a DOM-leak on menu re-entry.
+- Verification: `npm run check` passed 20 November 2026 (19 assets, strict TypeScript, 7/7 tests, production build; expected Phaser chunk warning). Browser: WorldScene loads via `?world` with objective, bounded campus, K, Hachimi and wallet marker; single-tap grid movement works; no console errors; UI no longer duplicates on menu re-entry. Not visually confirmed (screenshot/desktop not available in this environment): wall-clipping, door-transition visual, dialogue adjacency+facing, movement-blocked-during-dialogue — these depend on precise blind navigation blocked by the 170 ms movement tween.
+- Blockers / remaining work: None for code. A human playthrough on a machine with visible output should confirm wall clipping, door transition, NPC adjacency+facing, and dialogue blocks movement.
+- Next action: commit branch; human playthrough verification; then PR to main per TEAM_WORKFLOW.md.
+- Handoff / integration: branch `phase-1-campus-slice` only; not yet committed or integrated.

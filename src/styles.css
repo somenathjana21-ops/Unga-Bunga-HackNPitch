@@ -42,6 +42,72 @@ dialog::backdrop { background: #05080ccc; }
 dialog h2 { margin-top: 0; font-size: 28px; }
 #error { color: #ffb8ae; }
 .desktop-note { display: none; color: #bcc2cb; font-size: 13px; }
+
+/* Phase 1 world UI overlays, positioned above the canvas. */
+#world-objective {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 6px 12px;
+  background: #1d242e;
+  border: 1px solid #59606c;
+  border-radius: 4px;
+  color: #e2e3e6;
+  font-size: 13px;
+  font-weight: 600;
+  pointer-events: none;
+  z-index: 40;
+}
+#world-prompt {
+  position: fixed;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 6px 12px;
+  background: #1d242e;
+  border: 1px solid #e3b16b;
+  border-radius: 4px;
+  color: #e9b45c;
+  font-size: 13px;
+  font-weight: 600;
+  pointer-events: none;
+  z-index: 40;
+}
+#world-dialogue {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 460px;
+  padding: 24px;
+  background: #1d242e;
+  border: 1px solid #59606c;
+  border-radius: 8px;
+  color: #f2eee6;
+  line-height: 1.65;
+  z-index: 50;
+  pointer-events: auto;
+}
+#world-dialogue #world-dialogue-speaker {
+  margin: 0 0 6px 0;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: .18em;
+  color: #ddbb82;
+}
+#world-dialogue #world-dialogue-text {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+}
+#world-dialogue #world-dialogue-hint {
+  margin: 0;
+  font-size: 12px;
+  color: #9a9fa8;
+}
+
 @media (max-width: 760px) {
   .menu { grid-template-columns: 1fr; gap: 30px; }
   .key-art { max-width: 360px; }
