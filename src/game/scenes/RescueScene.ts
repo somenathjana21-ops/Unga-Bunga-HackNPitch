@@ -10,6 +10,8 @@ import { makeEnemy, updateEnemy } from '../combat/enemy';
 import { updateBullet } from '../combat/bullet';
 import type { RescueBeatDef } from '../../content/encounters/rescue-beats';
 import { rescueBeats } from '../../content/encounters/rescue-beats';
+import { playCutsceneOverlay } from '../../ui/cutscene-player';
+import { loadPreferences } from '../../services/preferences';
 
 // Rescue mission arena. One continuous combat scene runs the three rescue beats
 // (alley -> shelter hold -> extraction) while preserving campaign health across
@@ -89,6 +91,7 @@ export class RescueScene extends Phaser.Scene {
   private gameOverPanel!: Phaser.GameObjects.Container;
   private endingPanel!: Phaser.GameObjects.Container;
   private teachingCard!: Phaser.GameObjects.Container;
+  private endingBackground?: Phaser.GameObjects.Image;
 
   // Beat progression
   private beatIndex = 0;
@@ -186,6 +189,18 @@ export class RescueScene extends Phaser.Scene {
     if (!this.textures.exists('lina-shelter')) {
       this.load.image('lina-shelter', '/assets/characters/lina/lina-shelter-48px.png');
     }
+    // Chapter one ending backdrop behind the ending panel.
+    if (!this.textures.exists('bg-ending')) {
+      this.load.image('bg-ending', '/assets/backgrounds/chapter-one-ending.png');
+    }
+    // Counter tutorial teaching diagram
+    if (!this.textures.exists('counter-tutorial')) {
+      this.load.image('counter-tutorial', '/assets/backgrounds/counter-unlocked-tutorial.png');
+    }
+    // Service lane / alley arena backdrop
+    if (!this.textures.exists('bg-rescue')) {
+      this.load.image('bg-rescue', '/assets/backgrounds/twilight-ruins-warehouse-yard.png');
+    }
     // Breach machine
     if (!this.textures.exists('breach-machine')) {
       this.load.spritesheet('breach-machine', '/assets/characters/breach-machine/breach-machine-48px-4x4.png', {
@@ -224,6 +239,14 @@ export class RescueScene extends Phaser.Scene {
     ) as Record<string, Phaser.Input.Keyboard.Key>;
     this.input.keyboard!.addCapture(['UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE', 'ESC', 'E']);
     this.input.on('pointerdown', () => this.tryFire());
+
+    // Service lane arena backdrop
+    if (this.textures.exists('bg-rescue')) {
+      this.add.image(width / 2, height / 2, 'bg-rescue')
+        .setDisplaySize(width, height)
+        .setDepth(-1)
+        .setAlpha(0.65);
+    }
 
     // Cover
     this.coverGraphics = this.add.graphics();
@@ -302,20 +325,28 @@ export class RescueScene extends Phaser.Scene {
     this.teachingCard = this.add.container(width / 2, height / 2);
     this.teachingCard.setDepth(130);
     this.teachingCard.setVisible(false);
-    const cardBg = this.add.rectangle(0, 0, 420, 220, 0x111827, 0.95)
+    const cardBg = this.add.rectangle(0, 0, 480, 260, 0x111827, 0.95)
       .setStrokeStyle(2, 0xfde047);
-    const cardTitle = this.add.text(0, -70, 'COUNTER UNLOCKED', {
-      fontSize: '20px', fontFamily: 'monospace', color: '#fde047',
+    const cardTitle = this.add.text(0, -95, 'COUNTER UNLOCKED', {
+      fontSize: '18px', fontFamily: 'monospace', color: '#fde047',
     }).setOrigin(0.5);
-    const cardBody = this.add.text(0, -10, 'Dodge through a near hit. When COUNTER - CLICK appears, click to fire into the opening.', {
-      fontSize: '14px', fontFamily: 'monospace', color: '#e2e8f0', align: 'center',
-    }).setOrigin(0.5).setLineSpacing(4);
-    const cardHint = this.add.text(0, 55, 'Click anywhere to continue', {
-      fontSize: '14px', fontFamily: 'monospace', color: '#cbd5e1',
+    const cardBody = this.add.text(0, -65, 'Dodge through a near hit. When COUNTER appears, click to fire into the opening.', {
+      fontSize: '13px', fontFamily: 'monospace', color: '#e2e8f0', align: 'center',
+    }).setOrigin(0.5).setLineSpacing(3);
+    const cardItems: Phaser.GameObjects.GameObject[] = [cardBg, cardTitle, cardBody];
+    if (this.textures.exists('counter-tutorial')) {
+      const tutImg = this.add.image(0, 15, 'counter-tutorial')
+        .setDisplaySize(420, 110)
+        .setOrigin(0.5);
+      cardItems.push(tutImg);
+    }
+    const cardHint = this.add.text(0, 105, 'Click anywhere to continue', {
+      fontSize: '13px', fontFamily: 'monospace', color: '#cbd5e1',
     }).setOrigin(0.5);
-    this.teachingCard.add([cardBg, cardTitle, cardBody, cardHint]);
-    this.teachingCard.setSize(420, 220);
-    this.teachingCard.setInteractive({ useHandCursor: true, hitArea: new Phaser.Geom.Rectangle(-210, -110, 420, 220), hitAreaCallback: Phaser.Geom.Rectangle.Contains });
+    cardItems.push(cardHint);
+    this.teachingCard.add(cardItems);
+    this.teachingCard.setSize(480, 260);
+    this.teachingCard.setInteractive({ useHandCursor: true, hitArea: new Phaser.Geom.Rectangle(-240, -130, 480, 260), hitAreaCallback: Phaser.Geom.Rectangle.Contains });
     this.teachingCard.on('pointerdown', () => this.dismissTeaching());
 
     // Game Over overlay
@@ -351,23 +382,33 @@ export class RescueScene extends Phaser.Scene {
     this.endingPanel = this.add.container(width / 2, height / 2);
     this.endingPanel.setDepth(130);
     this.endingPanel.setVisible(false);
-    const endBg = this.add.rectangle(0, 0, 420, 260, 0x111827, 0.95).setStrokeStyle(2, 0x22d3ee);
-    const endTitle = this.add.text(0, -80, 'Resolve restored', {
-      fontSize: '20px', fontFamily: 'monospace', color: '#22d3ee',
+    const endBg = this.add.rectangle(0, 0, 520, 310, 0x111827, 0.96).setStrokeStyle(2, 0x22d3ee);
+    const endTitle = this.add.text(0, -120, 'WANT - Chapter One: The Wrong Person', {
+      fontSize: '18px', fontFamily: 'monospace', color: '#22d3ee',
     }).setOrigin(0.5);
-    const endBody = this.add.text(0, -25, 'Lina reached Mai\'s safe marker. girl-rescued once — health fully recovered.', {
-      fontSize: '14px', fontFamily: 'monospace', color: '#e2e8f0', align: 'center',
-    }).setOrigin(0.5).setLineSpacing(4).setWordWrapWidth(360);
-    const endLine = this.add.text(0, 30, '“You were the person who stayed.”', {
-      fontSize: '15px', fontFamily: 'monospace', color: '#fde047',
+    const endLine = this.add.text(0, -85, '“You were not the person they came for.\nYou were the person who stayed.”', {
+      fontSize: '15px', fontFamily: 'monospace', color: '#fde047', align: 'center',
     }).setOrigin(0.5);
-    const endFinish = this.add.text(0, 75, 'Finish chapter · Return to title', {
-      fontSize: '14px', fontFamily: 'monospace', color: '#cbd5e1',
+    const endQuotes = this.add.text(0, -15, 'Lina: “I thought nobody heard me.”  K: “I almost kept walking.”\nLina: “But you didn’t.”\n\nMai: “You’re who went back for her. I’m sorry for what I said.”\nIsshin: “Today you gave someone a way home. We can start there.”', {
+      fontSize: '12px', fontFamily: 'monospace', color: '#cbd5e1', align: 'center',
+    }).setOrigin(0.5).setLineSpacing(3);
+    const endStatus = this.add.text(0, 70, 'Lina safely in camp. girl-rescued · Health fully restored.', {
+      fontSize: '13px', fontFamily: 'monospace', color: '#86efac', align: 'center',
     }).setOrigin(0.5);
-    this.endingPanel.add([endBg, endTitle, endBody, endLine, endFinish]);
-    this.endingPanel.setSize(420, 260);
+    const endFinish = this.add.text(0, 115, '[ Finish chapter · Return to title ]', {
+      fontSize: '14px', fontFamily: 'monospace', color: '#38bdf8',
+    }).setOrigin(0.5);
+    this.endingPanel.add([endBg, endTitle, endLine, endQuotes, endStatus, endFinish]);
+    this.endingPanel.setSize(520, 310);
     this.endingPanel.on('pointerdown', () => this.returnToTitle());
-    this.endingPanel.setInteractive({ useHandCursor: true, hitArea: new Phaser.Geom.Rectangle(-210, -130, 420, 260), hitAreaCallback: Phaser.Geom.Rectangle.Contains });
+    this.endingPanel.setInteractive({ useHandCursor: true, hitArea: new Phaser.Geom.Rectangle(-260, -155, 520, 310), hitAreaCallback: Phaser.Geom.Rectangle.Contains });
+
+    // Chapter one ending backdrop behind the ending panel.
+    this.endingBackground = this.add.image(0, 0, 'bg-ending').setOrigin(0.5);
+    this.endingBackground
+      .setDisplaySize(this.cameras.main.width, this.cameras.main.height)
+      .setDepth(125)
+      .setVisible(false);
 
     if (this.defeated) {
       this.showGameOver();
@@ -612,7 +653,20 @@ export class RescueScene extends Phaser.Scene {
       this.state = next;
       saveRun(this.state);
     }
-    this.showEnding();
+    this.ended = true;
+    this.paused = true;
+    this.counterText.setVisible(false);
+
+    // Play Cutscene C04 payoff before displaying the chapter one epilogue panel
+    const prefs = loadPreferences();
+    const reducedMotion = prefs.status === 'ok' ? prefs.preferences.reducedMotion === 'reduce' : false;
+    playCutsceneOverlay({
+      cutsceneId: 'c04',
+      reducedMotion,
+      onComplete: () => {
+        this.showEnding();
+      },
+    });
   }
 
   private maybeAdvanceBeat() {
@@ -840,6 +894,7 @@ export class RescueScene extends Phaser.Scene {
     this.ended = true;
     this.paused = true;
     this.endingPanel.setVisible(true);
+    this.endingBackground?.setVisible(true);
     this.counterText.setVisible(false);
   }
 

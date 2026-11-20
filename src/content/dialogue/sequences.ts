@@ -69,7 +69,7 @@ export const dialogueSequences: Record<string, DialogueSequence> = {
   'library-bracelet-scene': {
     id: 'library-bracelet-scene',
     completionFlag: 'library-breakup-done',
-    cutsceneId: 'C01',
+    cutsceneId: 'c01',
     lines: [
       { speaker: 'k', text: 'Nero?' },
       { speaker: 'sayu', text: 'K, wait.', portrait: '/assets/characters/sayu/sayu-speaking-pose.png' },
@@ -166,7 +166,7 @@ export const dialogueSequences: Record<string, DialogueSequence> = {
   'breach-attack': {
     id: 'breach-attack',
     completionFlag: 'breach-survived',
-    cutsceneId: 'C02',
+    cutsceneId: 'c02',
     lines: [
       { speaker: 'man-1', text: 'Keep it inside! Fire!' },
       { speaker: 'k', text: 'Who are you? What\'s happening?' },
@@ -199,7 +199,7 @@ export const dialogueSequences: Record<string, DialogueSequence> = {
   'clinic-window': {
     id: 'clinic-window',
     completionFlag: 'clinic-window-seen',
-    cutsceneId: 'C03',
+    cutsceneId: 'c03',
     lines: [
       { speaker: 'k', text: 'What happened to everyone?' },
     ],
@@ -310,7 +310,31 @@ export const dialogueSequences: Record<string, DialogueSequence> = {
     id: 'settlement-cry-for-help',
     completionFlag: 'settlement-cry-heard',
     lines: [
+      { speaker: 'civilian', text: 'Help! Someone help me! They\'re in the lane!' },
+      { speaker: 'isshin', text: 'That\'s near the east lane. We don\'t have anyone out there.', portrait: '/assets/characters/isshin/isshin-speaking-pose.png' },
       { speaker: 'k', text: 'Someone\'s still out there.' },
+      { speaker: 'isshin', text: 'K, wait! The gate isn\'t clear!', portrait: '/assets/characters/isshin/isshin-speaking-pose.png' },
+    ],
+  },
+
+  // ──────────────────────────────────────────────
+  // 11 / Someone who went back — shelter epilogue
+  // ──────────────────────────────────────────────
+
+  'epilogue-shelter': {
+    id: 'epilogue-shelter',
+    completionFlag: 'epilogue-shelter-done',
+    lines: [
+      { speaker: 'lina', text: 'I was bringing these back when the patrol cut through the lane. I thought nobody heard me.' },
+      { speaker: 'k', text: 'I almost kept walking.' },
+      { speaker: 'lina', text: 'But you didn\'t.' },
+      { speaker: 'mai', text: 'You\'re who went back for her.', portrait: '/assets/characters/mai/mai-speaking-pose.png' },
+      { speaker: 'mai', text: 'What I said in the clinic... You didn\'t choose to be dragged into this. I\'m sorry.', portrait: '/assets/characters/mai/mai-speaking-pose.png' },
+      { speaker: 'k', text: 'I still can\'t give you the cure.' },
+      { speaker: 'isshin', text: 'Today you gave someone a way home. We can start there.', portrait: '/assets/characters/isshin/isshin-speaking-pose.png' },
+      { speaker: 'lina', text: 'Tomorrow, if you\'re staying, I\'ll show you the lanes without the machines.' },
+      { speaker: 'k', text: 'I\'d like that.' },
+      { speaker: 'k', text: 'I wanted someone to tell me what I was supposed to be. Maybe I can start with what I choose to do.' },
     ],
   },
 

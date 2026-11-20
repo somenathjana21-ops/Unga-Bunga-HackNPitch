@@ -714,6 +714,160 @@
       "height": 941,
       "bytes": 1209027,
       "usageRights": "generated"
+    },
+    {
+      "source": "assets/backgrounds/rusty-open-industrial-sliding-gate.png",
+      "width": 1024,
+      "height": 1024,
+      "bytes": 1490100,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/backgrounds/smoky-black-portal-void.png",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 935132,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/backgrounds/weathered-rollup-shutter.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 1538475,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/backgrounds/clinic-table-satchel.png",
+      "width": 1774,
+      "height": 887,
+      "bytes": 709144,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/backgrounds/purple-industrial-lever.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 551303,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/backgrounds/industrial-handcart.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 741661,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/backgrounds/purple-gray-rubble-pile.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 240948,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/backgrounds/bedding-medical-supplies.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 475285,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/backgrounds/counter-unlocked-tutorial.png",
+      "width": 1774,
+      "height": 887,
+      "bytes": 1763657,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/mai/mai-commanding-gesture.png",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 1969963,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/backgrounds/pixel-art-leather-wallet-icon.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 120585,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/backgrounds/pixel-art-braided-wristband.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 107600,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/backgrounds/pixel-art-retro-tv-sprite.png",
+      "width": 1312,
+      "height": 1199,
+      "bytes": 344674,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/backgrounds/retro-pixel-art-two-door-fridge.png",
+      "width": 887,
+      "height": 1774,
+      "bytes": 746788,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/backgrounds/retro-pixel-art-medical-monitor.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 350353,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/backgrounds/pixel-art-iv-stand-sprite.png",
+      "width": 887,
+      "height": 1774,
+      "bytes": 373627,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/backgrounds/retro-pixel-meal-tray.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 231151,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/backgrounds/battered-pixel-steel-target-plate.png",
+      "width": 887,
+      "height": 1774,
+      "bytes": 491075,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/backgrounds/worn-retro-portable-radio-sprite.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 408491,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/backgrounds/worn-medical-courier-bag.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 430772,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/backgrounds/worn-pixel-art-compact-pistol.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 410081,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/backgrounds/pixel-art-smartphone-sprite.png",
+      "width": 1254,
+      "height": 1254,
+      "bytes": 149102,
+      "usageRights": "confirm with creator"
     }
   ]
 }

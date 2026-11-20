@@ -4,6 +4,9 @@ import type { RunState } from '../src/game/state';
 import { difficultyRules, MAX_HEALTH } from '../src/game/rules';
 import { loadRun, saveRun } from '../src/services/local-save';
 import { canEnter } from '../src/game/maps/preview-room';
+import { dialogueSequences } from '../src/content/dialogue/sequences';
+import { cutscenes } from '../src/content/cutscenes/ledger';
+import { settlementMap } from '../src/content/maps/settlement';
 
 describe('campaign promises', () => {
   it('Real Mode kills on the second hit, even across scenes', () => {
@@ -90,5 +93,22 @@ describe('campaign promises', () => {
     expect(canEnter(-1, 5)).toBe(false);
     expect(canEnter(16, 9)).toBe(false);
     expect(canEnter(2, 5)).toBe(true);
+  });
+  it('dialogue cutscene references map to ledger cutscenes and section 11 epilogue exists', () => {
+    expect(dialogueSequences['library-bracelet-scene'].cutsceneId).toBe('c01');
+    expect(dialogueSequences['breach-attack'].cutsceneId).toBe('c02');
+    expect(dialogueSequences['clinic-window'].cutsceneId).toBe('c03');
+    expect(cutscenes.c01).toBeDefined();
+    expect(cutscenes.c02).toBeDefined();
+    expect(cutscenes.c03).toBeDefined();
+    expect(cutscenes.c04).toBeDefined();
+    expect(dialogueSequences['epilogue-shelter']).toBeDefined();
+    expect(dialogueSequences['epilogue-shelter'].lines.length).toBeGreaterThan(5);
+  });
+  it('settlement map provides a door to the rescue mission after cry for help', () => {
+    const rescueDoor = settlementMap.doors.find(d => d.targetMap === 'rescue');
+    expect(rescueDoor).toBeDefined();
+    expect(rescueDoor?.requiresFlag).toBe('settlement-cry-heard');
+    expect(settlementMap.grid[4][15]).toBe('D');
   });
 });

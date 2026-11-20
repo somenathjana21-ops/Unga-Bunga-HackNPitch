@@ -7,6 +7,13 @@ import {
   enterMap, markSettlementInteraction, areAllSettlementInteractionsDone,
 } from '../story-state';
 import type { StoryProgress } from '../story-state';
+import { dialogueSequences } from '../../content/dialogue/sequences';
+import { playCutsceneOverlay } from '../../ui/cutscene-player';
+import { loadPreferences } from '../../services/preferences';
+import { saveRun } from '../../services/local-save';
+import type { RunState } from '../state';
+import type { Difficulty } from '../rules';
+import type { Milestone } from '../../content/campaign';
 
 /** Display name for each character ID, used by the on-map NPC labels. */
 const characterNames: Record<string, string> = Object.fromEntries(
@@ -90,6 +97,7 @@ export class WorldScene extends Phaser.Scene {
       'campus-library-approach',
       'twilight-library-courtyard-encounter',
       'dorm-room-shared',
+      'moonlit-dorm-void-doorway',
       'post-apocalyptic-clinic',
       'post-apocalyptic-courtyard-camp',
     ];
@@ -418,9 +426,31 @@ export class WorldScene extends Phaser.Scene {
     for (const door of this.map.doors) {
       if (door.position.x !== this.tile.x || door.position.y !== this.tile.y) continue;
       if (door.requiresFlag && !hasFlag(this.progress, door.requiresFlag)) continue;
+      if (door.targetMap === 'rescue') {
+        this.startRescueMission();
+        return;
+      }
       this.loadMap(door.targetMap);
       return;
     }
+  }
+
+  private startRescueMission() {
+    const runState: RunState = {
+      version: 1,
+      mode: 'campaign',
+      difficulty: (this.registry.get('difficulty') as Difficulty) ?? 'story',
+      health: (this.registry.get('health') as number) ?? 100,
+      checkpoint: 'rescue-start',
+      milestones: (this.registry.get('milestones') as Milestone[]) ?? [],
+      counterUnlocked: (this.registry.get('counterUnlocked') as boolean) ?? false,
+      rescueStatus: 'active',
+    };
+    saveRun(runState);
+    this.scene.start('RescueScene', {
+      state: runState,
+      difficulty: runState.difficulty,
+    });
   }
 
   private updatePrompt() {
@@ -494,10 +524,19 @@ export class WorldScene extends Phaser.Scene {
     if (completionFlag === 'breach-woke') {
       this.progress.objective = 'Check the door.';
       this.objectiveText.setText(`Objective: ${this.progress.objective}`);
+      if (this.textures.exists('bg-moonlit-dorm-void-doorway')) {
+        this.backgroundSprite?.setTexture('bg-moonlit-dorm-void-doorway');
+      }
+    } else if (completionFlag === 'breach-door-examined') {
+      // Auto-trigger the breach attack immediately after examining the door
+      this.time.delayedCall(600, () => this.startDialogue('breach-attack'));
     } else if (completionFlag === 'breach-survived') {
-      // Transition to clinic after the breach
-      this.loadMap('clinic');
-      return;
+      // Handled via cutscene overlay completion (or fallback if cutscene fails)
+      const hasCutscene = Boolean(dialogueSequences[sequenceId]?.cutsceneId);
+      if (!hasCutscene) {
+        this.loadMap('clinic');
+        return;
+      }
     } else if (completionFlag === 'clinic-woke') {
       this.progress.objective = 'Look out the window.';
       this.objectiveText.setText(`Objective: ${this.progress.objective}`);
@@ -518,10 +557,7 @@ export class WorldScene extends Phaser.Scene {
       this.objectiveText.setText(`Objective: ${this.progress.objective}`);
     } else if (completionFlag === 'library-hachimi-met') {
       // Hachimi steps aside and K sees Sayu and Nero. Defer the bracelet scene
-      // so the current DialogueScene has fully stopped before we launch the
-      // next one; launching synchronously inside onComplete starts and stops
-      // DialogueScene in the same tick, which leaves dialogue state desynced
-      // and the controls stuck.
+      // so the current DialogueScene has fully stopped before we launch the next one.
       this.time.delayedCall(800, () => this.startDialogue('library-bracelet-scene'));
     } else if (completionFlag === 'library-breakup-done') {
       this.progress.objective = 'Go home.';
@@ -542,7 +578,29 @@ export class WorldScene extends Phaser.Scene {
       if (areAllSettlementInteractionsDone(this.progress) && !hasFlag(this.progress, 'settlement-cry-heard')) {
         this.progress.objective = 'Find the person in the east lane.';
         this.objectiveText.setText(`Objective: ${this.progress.objective}`);
+      } else if (completionFlag === 'settlement-cry-heard') {
+        this.progress.objective = 'Pass through the east gate to rescue the civilian.';
+        this.objectiveText.setText(`Objective: ${this.progress.objective}`);
       }
+    }
+
+    // Play associated cutscene if defined for this sequence
+    const seq = dialogueSequences[sequenceId];
+    if (seq?.cutsceneId) {
+      const cutsceneId = seq.cutsceneId.toLowerCase();
+      const prefs = loadPreferences();
+      const reducedMotion = prefs.status === 'ok' ? prefs.preferences.reducedMotion === 'reduce' : false;
+      playCutsceneOverlay({
+        cutsceneId,
+        reducedMotion,
+        onComplete: () => {
+          if (completionFlag === 'library-breakup-done') {
+            this.time.delayedCall(400, () => this.startDialogue('library-hachimi-farewell'));
+          } else if (completionFlag === 'breach-survived') {
+            this.loadMap('clinic');
+          }
+        },
+      });
     }
 
     // Refresh NPCs and markers to reflect new state

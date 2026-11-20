@@ -559,6 +559,160 @@
       "output": "characters/lina/lina-character-sheet.png",
       "width": 1312,
       "height": 1199
+    },
+    {
+      "id": "rusty-open-industrial-sliding-gate",
+      "source": "assets/backgrounds/rusty-open-industrial-sliding-gate.png",
+      "output": "backgrounds/rusty-open-industrial-sliding-gate.png",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "id": "smoky-black-portal-void",
+      "source": "assets/backgrounds/smoky-black-portal-void.png",
+      "output": "backgrounds/smoky-black-portal-void.png",
+      "width": 1024,
+      "height": 1536
+    },
+    {
+      "id": "weathered-rollup-shutter",
+      "source": "assets/backgrounds/weathered-rollup-shutter.png",
+      "output": "backgrounds/weathered-rollup-shutter.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "id": "clinic-table-satchel",
+      "source": "assets/backgrounds/clinic-table-satchel.png",
+      "output": "backgrounds/clinic-table-satchel.png",
+      "width": 1774,
+      "height": 887
+    },
+    {
+      "id": "purple-industrial-lever",
+      "source": "assets/backgrounds/purple-industrial-lever.png",
+      "output": "backgrounds/purple-industrial-lever.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "id": "industrial-handcart",
+      "source": "assets/backgrounds/industrial-handcart.png",
+      "output": "backgrounds/industrial-handcart.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "id": "purple-gray-rubble-pile",
+      "source": "assets/backgrounds/purple-gray-rubble-pile.png",
+      "output": "backgrounds/purple-gray-rubble-pile.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "id": "bedding-medical-supplies",
+      "source": "assets/backgrounds/bedding-medical-supplies.png",
+      "output": "backgrounds/bedding-medical-supplies.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "id": "counter-unlocked-tutorial",
+      "source": "assets/backgrounds/counter-unlocked-tutorial.png",
+      "output": "backgrounds/counter-unlocked-tutorial.png",
+      "width": 1774,
+      "height": 887
+    },
+    {
+      "id": "mai-commanding-gesture",
+      "source": "assets/characters/mai/mai-commanding-gesture.png",
+      "output": "characters/mai/mai-commanding-gesture.png",
+      "width": 1024,
+      "height": 1536
+    },
+    {
+      "id": "pixel-art-leather-wallet-icon",
+      "source": "assets/backgrounds/pixel-art-leather-wallet-icon.png",
+      "output": "backgrounds/pixel-art-leather-wallet-icon.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "id": "pixel-art-braided-wristband",
+      "source": "assets/backgrounds/pixel-art-braided-wristband.png",
+      "output": "backgrounds/pixel-art-braided-wristband.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "id": "pixel-art-retro-tv-sprite",
+      "source": "assets/backgrounds/pixel-art-retro-tv-sprite.png",
+      "output": "backgrounds/pixel-art-retro-tv-sprite.png",
+      "width": 1312,
+      "height": 1199
+    },
+    {
+      "id": "retro-pixel-art-two-door-fridge",
+      "source": "assets/backgrounds/retro-pixel-art-two-door-fridge.png",
+      "output": "backgrounds/retro-pixel-art-two-door-fridge.png",
+      "width": 887,
+      "height": 1774
+    },
+    {
+      "id": "retro-pixel-art-medical-monitor",
+      "source": "assets/backgrounds/retro-pixel-art-medical-monitor.png",
+      "output": "backgrounds/retro-pixel-art-medical-monitor.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "id": "pixel-art-iv-stand-sprite",
+      "source": "assets/backgrounds/pixel-art-iv-stand-sprite.png",
+      "output": "backgrounds/pixel-art-iv-stand-sprite.png",
+      "width": 887,
+      "height": 1774
+    },
+    {
+      "id": "retro-pixel-meal-tray",
+      "source": "assets/backgrounds/retro-pixel-meal-tray.png",
+      "output": "backgrounds/retro-pixel-meal-tray.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "id": "battered-pixel-steel-target-plate",
+      "source": "assets/backgrounds/battered-pixel-steel-target-plate.png",
+      "output": "backgrounds/battered-pixel-steel-target-plate.png",
+      "width": 887,
+      "height": 1774
+    },
+    {
+      "id": "worn-retro-portable-radio-sprite",
+      "source": "assets/backgrounds/worn-retro-portable-radio-sprite.png",
+      "output": "backgrounds/worn-retro-portable-radio-sprite.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "id": "worn-medical-courier-bag",
+      "source": "assets/backgrounds/worn-medical-courier-bag.png",
+      "output": "backgrounds/worn-medical-courier-bag.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "id": "worn-pixel-art-compact-pistol",
+      "source": "assets/backgrounds/worn-pixel-art-compact-pistol.png",
+      "output": "backgrounds/worn-pixel-art-compact-pistol.png",
+      "width": 1254,
+      "height": 1254
+    },
+    {
+      "id": "pixel-art-smartphone-sprite",
+      "source": "assets/backgrounds/pixel-art-smartphone-sprite.png",
+      "output": "backgrounds/pixel-art-smartphone-sprite.png",
+      "width": 1254,
+      "height": 1254
     }
   ]
 }
