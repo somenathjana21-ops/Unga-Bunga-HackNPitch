@@ -184,14 +184,12 @@ export class WorldScene extends Phaser.Scene {
   private drawMap() {
     // Full-map backdrop behind the tile grid (walls and doors draw on top).
     const bgId = this.map.backgroundImageId;
-    if (bgId) {
-      const key = `bg-${bgId}`;
-      if (this.textures.exists(key)) {
-        this.backgroundSprite = this.add.image(0, 0, key).setOrigin(0, 0);
-        this.backgroundSprite
-          .setDisplaySize(this.scale.width, this.scale.height)
-          .setDepth(-1);
-      }
+    const hasBackground = bgId && this.textures.exists(`bg-${bgId}`);
+    if (hasBackground) {
+      this.backgroundSprite = this.add.image(0, 0, `bg-${bgId}`).setOrigin(0, 0);
+      this.backgroundSprite
+        .setDisplaySize(this.scale.width, this.scale.height)
+        .setDepth(-1);
     }
 
     this.floorGraphics = this.add.graphics();
@@ -200,7 +198,9 @@ export class WorldScene extends Phaser.Scene {
         const px = x * TILE_SIZE;
         const py = y * TILE_SIZE;
         if (cell === '#') {
-          this.floorGraphics.fillStyle(0x39434c);
+          // Wall: solid obstacle. When a backdrop is set, darken it subtly so
+          // the player can still read the map art behind the blocked tiles.
+          this.floorGraphics.fillStyle(hasBackground ? 0x000000 : 0x39434c, hasBackground ? 0.5 : 1);
           this.floorGraphics.fillRect(px, py, TILE_SIZE - 1, TILE_SIZE - 1);
           this.floorGraphics.fillStyle(0x57616b);
           this.floorGraphics.fillRect(px + 3, py + 3, TILE_SIZE - 7, 3);
@@ -213,8 +213,12 @@ export class WorldScene extends Phaser.Scene {
           this.floorGraphics.lineStyle(2, 0xe9b45c);
           this.floorGraphics.strokeRect(px + 4, py + 4, TILE_SIZE - 9, TILE_SIZE - 9);
         } else {
-          this.floorGraphics.fillStyle((x + y) % 2 ? 0x1e262e : 0x222c34);
-          this.floorGraphics.fillRect(px, py, TILE_SIZE - 1, TILE_SIZE - 1);
+          // Floor: let the backdrop show through when one is set; otherwise
+          // draw the dark checkerboard fallback so the grid stays readable.
+          if (!hasBackground) {
+            this.floorGraphics.fillStyle((x + y) % 2 ? 0x1e262e : 0x222c34);
+            this.floorGraphics.fillRect(px, py, TILE_SIZE - 1, TILE_SIZE - 1);
+          }
         }
       });
     });
