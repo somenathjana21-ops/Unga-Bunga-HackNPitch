@@ -17,39 +17,38 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
         </fieldset>
         <p id="difficulty-note" class="hint">Half enemy health and damage. Four hits from full health.</p>
         <div class="actions">
-          <button id="start-preview" class="primary">Explore the preview <span aria-hidden="true">↗</span></button>
+          <button id="start-campaign" class="primary">Begin the story <span aria-hidden="true">↗</span></button>
           <button id="open-controls" class="secondary">Controls & accessibility</button>
         </div>
-        <p class="build-note">Foundation preview · Story campaign in development</p>
+        <p class="build-note">Chapter One · The Wrong Person</p>
       </div>
       <div class="key-art" aria-hidden="true">
         <img src="/assets/characters/k/k-persona-poster.png" alt="" />
         <div class="art-caption"><span>01 / K</span><span>2026 → 2085</span></div>
       </div>
     </section>
-    <section id="preview" class="preview" hidden aria-label="Exploration preview">
-      <header><div><span class="eyebrow">WANT / exploration preview</span><p id="mode-label"></p></div>
+    <section id="preview" class="preview" hidden aria-label="Game area">
+      <header><div><span class="eyebrow">WANT / Chapter One</span><p id="mode-label"></p></div>
         <button id="back-to-menu" class="secondary">Back to menu <kbd>Esc</kbd></button></header>
-      <p id="preview-status" role="status">Walk to the amber marker, then press E.</p>
-      <div id="game" role="region" aria-label="Game area. Use WASD or arrow keys to move." tabindex="0"></div>
-      <div class="preview-footer"><p class="hint">WASD / arrows · Move &nbsp; E · Interact</p></div>
+      <div id="game" role="region" aria-label="Game area. Use WASD or arrow keys to move. E to interact." tabindex="0"></div>
+      <div class="preview-footer"><p class="hint">WASD / arrows · Move &nbsp; E · Interact / Continue &nbsp; Space · Continue &nbsp; Esc · Skip dialogue / Back to menu</p></div>
     </section>
     <p id="error" role="alert" hidden></p>
-    <p class="desktop-note">This preview is designed for a desktop keyboard and mouse.</p>
+    <p class="desktop-note">This game is designed for a desktop keyboard and mouse.</p>
   </main>
   <dialog id="controls" aria-labelledby="controls-title">
     <h2 id="controls-title">Find your footing.</h2>
     <p><kbd>WASD</kbd> or <kbd>↑ ↓ ← →</kbd> Move one tile at a time.</p>
-    <p><kbd>E</kbd> Interact with a nearby marker.</p>
-    <p><kbd>Esc</kbd> Return to the menu.</p>
-    <p>The preview has no combat or sound yet. The campaign will add mouse aiming, shooting, and a Space dodge.</p>
-    <p>Menus work with Tab and Enter. Your system’s reduced-motion preference is respected by menu effects.</p>
+    <p><kbd>E</kbd> Interact with a nearby person or object. Advance dialogue.</p>
+    <p><kbd>Space</kbd> Advance dialogue.</p>
+    <p><kbd>Esc</kbd> Skip dialogue. Return to the menu when no dialogue is open.</p>
+    <p>Menus work with Tab and Enter. Your system's reduced-motion preference is respected by menu effects.</p>
     <form method="dialog"><button class="primary">Got it</button></form>
   </dialog>`;
 
 const menu = document.querySelector<HTMLElement>('#menu')!;
 const preview = document.querySelector<HTMLElement>('#preview')!;
-const start = document.querySelector<HTMLButtonElement>('#start-preview')!;
+const start = document.querySelector<HTMLButtonElement>('#start-campaign')!;
 const gameHost = document.querySelector<HTMLDivElement>('#game')!;
 const errorBox = document.querySelector<HTMLElement>('#error')!;
 let game: { destroy: (removeCanvas: boolean) => void } | undefined;
@@ -75,21 +74,21 @@ start.addEventListener('click', async () => {
   try {
     const { createGame } = await import('./game/create-game');
     const difficulty = document.querySelector<HTMLInputElement>('input[name="difficulty"]:checked')!.value as Difficulty;
-    document.querySelector('#mode-label')!.textContent = `${difficultyRules[difficulty].label} · Movement test room`;
+    document.querySelector('#mode-label')!.textContent = `${difficultyRules[difficulty].label} · Chapter One`;
     menu.hidden = true;
     preview.hidden = false;
-    game = createGame(gameHost);
+    game = createGame(gameHost, difficulty);
     preview.scrollIntoView({ block: 'start' });
     gameHost.focus({ preventScroll: true });
   } catch {
     preview.hidden = true;
     menu.hidden = false;
     errorBox.hidden = false;
-    errorBox.textContent = 'The preview could not start. Please refresh and try again.';
+    errorBox.textContent = 'The game could not start. Please refresh and try again.';
   } finally {
     launching = false;
     start.disabled = false;
-    start.textContent = 'Explore the preview ↗';
+    start.textContent = 'Begin the story ↗';
   }
 });
 
@@ -98,6 +97,5 @@ document.querySelector('#back-to-menu')!.addEventListener('click', () => {
   game = undefined;
   preview.hidden = true;
   menu.hidden = false;
-  document.querySelector('#preview-status')!.textContent = 'Walk to the amber marker, then press E.';
   start.focus();
 });

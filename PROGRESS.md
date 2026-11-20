@@ -34,7 +34,7 @@ Do not turn an entire phase to Done because one task or placeholder is finished.
 | P0-FOUNDATION | Runnable starter, rules, guides and assets | Done | Snapshot `0c507d8` on local `main`. Evidence in `docs/VERIFICATION.md`. |
 | P0-TEAM | Team-machine checks, owner assignment, shared remote and event requirements | Done | Gate closed on the project creator's sign-off on 9 November 2026. Movement confirmed on all machines. Team E retest, roster, interface sign-off and organizer clarification are tracked as follow-ups below. |
 | P1 | Exploration world | Not started | Real campus/dorm/camp maps; preview room is only a proof. |
-| P2 | Dialogue and opening story | Not started | Playable opening through settlement, including skip/read paths. |
+| P2 | Dialogue and opening story | In progress | Playable opening through settlement, including skip/read paths. |
 | P3 | Real-time combat | Not started | Pistol, dodge, enemies, counter, both difficulties, fair damage. |
 | P4 | Cutscenes, audio and settings | Not started | Media, mute, captions, reduced motion, reliable skip. |
 | P5 | Rescue and ending | Not started | Complete route, all failure/retry paths, milestone recovery. |
@@ -245,6 +245,20 @@ Copy this template as a new subsection; replace the placeholders:
 - Next action: the Phase 1 owner claims the campus-to-library exploration slice per the task board.
 - Handoff / integration: pushed to `origin/master`; the commit hash and remote verification are recorded in the activity log below.
 
+### P2-001 - opening through settlement exploration
+- Status: In progress
+- Agent/session: OpenCode / phase-2-opening-20261120
+- Human owner: Unassigned
+- Branch/worktree: `master`, `C:/Users/Vaibhav Goyal/OneDrive/Desktop/Want/Unga-Bunga-HackNPitch`
+- Started / last updated: 20 November 2026 (Asia/Calcutta)
+- Scope / owned files: `src/content/dialogue/` (types.ts, sequences.ts, cutscenes.ts), `src/content/maps/` (types.ts, campus.ts, library.ts, dorm.ts, clinic.ts, settlement.ts, index.ts), `src/game/story-state.ts`, `src/game/scenes/DialogueScene.ts`, `src/game/scenes/WorldScene.ts`, `src/game/create-game.ts` (updated), `src/main.ts` (updated), `src/content/characters.ts` (added civilian)
+- Acceptance criteria: data-driven dialogue with speaker IDs, optional portraits, line advance, instant text reveal, and completion flags; short readable chunks for Mai's explanation; objectives and three local settlement interactions; story choices change a response but not the main ending; breach is a scripted survival scene with no unwinnable combat; placeholder cutscene IDs C01-C04 for Phase 4; dialogue skip reaches same story state as reading; `npm run check` passes.
+- Completed so far: dialogue system with types, sequences for playthrough sections 01-07, cutscene placeholders C01-C04; five maps (campus, library, dorm, clinic, settlement) with grid movement, collision, NPCs, interactables, automatic triggers, door transitions; story state tracking with completion flags; DialogueScene with portrait support, choices, skip/read convergence; WorldScene with grid movement, interaction prompts, objective UI, scene transitions; updated main.ts and create-game.ts to launch campaign.
+- Verification: `npm run check` passed (19 assets, strict TypeScript, 7 tests, production build). Browser/dev server smoke test Not run (dev server started but not manually tested).
+- Blockers / remaining work: manual browser playthrough needed to verify story flow, skip/read convergence, and settlement interaction tracking; breach-to-clinic transition needs visual verification; Phase 4 cutscenes are placeholders only.
+- Next action: manual playthrough verification of the full opening through settlement; then handoff to Phase 3 combat owner.
+- Handoff / integration: local `master` branch, uncommitted. Branch only until integrated via PR.
+
 ## Coordination rules
 
 - Read the newest available tracker and inspect the actual files/branch before claiming work. A claim is an ownership note, not a filesystem lock.
@@ -293,3 +307,4 @@ Add concise entries at the bottom; do not rewrite prior entries to make earlier 
 - **14 November 2026 - ART-REV-001 - OpenCode:** the project creator approved all 22 revised PNGs. Integration verification reran `npm run check` on the full working tree (19 assets validated, strict TypeScript, 7 tests, production build; expected Phaser size warning) before committing. Committed the art revisions, manifest, checklist/architecture/prompt-guide updates and the PDF together with the tracker, then pushed to `origin/main`; the verified remote hash is recorded in the follow-up entry.
 - **14 November 2026 - ART-REV-001 - OpenCode:** publication recorded. `git ls-remote` confirmed `origin/main` at `3e3e56c80b26e97ac3b161d0a5cd7340bde08d8e` after the push; working tree clean. Remaining open items: usage rights/credits confirmation (operational task in `docs/DECISIONS.md`) and the Phase 2 handoff of the approved speaking portraits.
 - **20 November 2026 - PUBLISH-001 - OpenCode:** published the foundation workspace to the configured remote `Unga-Bunga-HackNPitch`. This checkout had an empty `master`; based the snapshot on `origin/master` `7bcda3d` so the supplied art appears as renames into `assets/characters/`. Passed `npm ci`, `npm run check` (19 assets, TypeScript, 7 tests, build; expected Phaser warning) and `npm test` (7/7) before committing. Committed as `d24ebae` and pushed to `origin/master`; `git ls-remote` confirmed `d24ebae4a26702554cdf035acca23b4466e5291b` and the working tree was clean. `phase/0-scaffold` untouched.
+- **20 November 2026 - P2-001 - OpenCode:** implemented Phase 2 opening through settlement exploration. Created data-driven dialogue system (`src/content/dialogue/`) with speaker IDs, optional portraits, line advance, instant text reveal, and completion flags; dialogue sequences for playthrough sections 01-07; short readable chunks for Mai's explanation; three settlement interactions (ration table, barricade, shelter board); story choices that change responses but not the main ending; scripted breach survival scene with no combat; placeholder cutscene IDs C01-C04 for Phase 4; skip/read convergence (same completion flags). Created map data (`src/content/maps/`) for campus, library, dorm, clinic, settlement with grid movement, collision, NPCs, interactables, automatic triggers, door transitions. Created `DialogueScene` and `WorldScene` for exploration; updated `main.ts` and `create-game.ts` to launch the campaign. `npm run check` passed (19 assets, TypeScript, 7 tests, production build). Manual browser playthrough Not run.

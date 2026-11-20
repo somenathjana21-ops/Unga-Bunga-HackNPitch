@@ -1,0 +1,97 @@
+import type { GameMap } from './types';
+
+/** 05–06 / Resistance clinic, 2085 — Mai, Isshin, window, wrong name reveal. */
+export const clinicMap: GameMap = {
+  id: 'clinic',
+  name: 'Resistance clinic',
+  grid: [
+    '################',
+    '#..............#',
+    '#..............#',
+    '#..............#',
+    '#..............D',
+    '#..............#',
+    '#..............#',
+    '#..............#',
+    '################',
+  ],
+  spawn: { x: 2, y: 6 },
+  objective: 'Speak to Mai.',
+  npcs: [
+    {
+      id: 'mai-wake',
+      characterId: 'mai',
+      position: { x: 5, y: 4 },
+      dialogueId: 'clinic-wake',
+      excludesFlag: 'clinic-woke',
+    },
+    {
+      id: 'mai-history-1',
+      characterId: 'mai',
+      position: { x: 5, y: 4 },
+      dialogueId: 'clinic-mai-history-1',
+      requiresFlag: 'clinic-woke',
+      excludesFlag: 'clinic-history-part1',
+    },
+    {
+      id: 'mai-history-2',
+      characterId: 'mai',
+      position: { x: 5, y: 4 },
+      dialogueId: 'clinic-mai-history-2',
+      requiresFlag: 'clinic-history-part1',
+      excludesFlag: 'clinic-history-part2',
+    },
+    {
+      id: 'isshin-clinic',
+      characterId: 'isshin',
+      position: { x: 9, y: 3 },
+      dialogueId: 'clinic-wrong-name-1',
+      requiresFlag: 'clinic-history-part2',
+      excludesFlag: 'clinic-wrong-name-part1',
+    },
+    {
+      id: 'mai-wrong-name-2',
+      characterId: 'mai',
+      position: { x: 5, y: 4 },
+      dialogueId: 'clinic-wrong-name-2',
+      requiresFlag: 'clinic-wrong-name-part1',
+      excludesFlag: 'clinic-wrong-name-part2',
+    },
+    {
+      id: 'mai-wrong-name-3',
+      characterId: 'mai',
+      position: { x: 5, y: 4 },
+      dialogueId: 'clinic-wrong-name-3',
+      requiresFlag: 'clinic-wrong-name-part2',
+      excludesFlag: 'clinic-wrong-name-done',
+    },
+  ],
+  interactables: [
+    {
+      id: 'window',
+      position: { x: 12, y: 2 },
+      dialogueId: 'clinic-window',
+      prompt: 'Look out the window',
+      requiresFlag: 'clinic-woke',
+      excludesFlag: 'clinic-window-seen',
+    },
+    {
+      id: 'radio',
+      position: { x: 3, y: 2 },
+      dialogueId: 'clinic-radio-archive',
+      prompt: 'Inspect radio',
+      requiresFlag: 'clinic-window-seen',
+      excludesFlag: 'clinic-radio-seen',
+    },
+  ],
+  triggers: [],
+  doors: [
+    {
+      position: { x: 15, y: 4 },
+      targetMap: 'settlement',
+      targetSpawn: { x: 2, y: 6 },
+      requiresFlag: 'clinic-wrong-name-done',
+      objective: 'Explore the settlement.',
+    },
+  ],
+};

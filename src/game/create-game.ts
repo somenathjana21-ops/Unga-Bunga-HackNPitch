@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
-import { PreviewScene } from './scenes/PreviewScene';
+import { WorldScene } from './scenes/WorldScene';
+import { DialogueScene } from './scenes/DialogueScene';
+import type { Difficulty } from './rules';
 
-export function createGame(parent: HTMLElement): Phaser.Game {
+export function createGame(parent: HTMLElement, difficulty: Difficulty): Phaser.Game {
   return new Phaser.Game({
     type: Phaser.AUTO,
     parent,
@@ -10,8 +12,13 @@ export function createGame(parent: HTMLElement): Phaser.Game {
     backgroundColor: '#171d24',
     pixelArt: true,
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-    scene: [PreviewScene],
+    scene: [WorldScene, DialogueScene],
     audio: { noAudio: true },
+    callbacks: {
+      preBoot: (game) => {
+        game.registry.set('difficulty', difficulty);
+      },
+    },
     // Phase 4 will enable audio after a user gesture; this preview contains no sound files.
   });
 }
