@@ -448,6 +448,20 @@ Add concise entries at the bottom; do not rewrite prior entries to make earlier 
 - Handoff / integration: integrated on `master`
 
 
+### FIX-HACHIMI-001 - library exit door lets player progress past Hachimi
+- Status: Done
+- Agent/session: OpenCode / hachimi-progression-fix-20261121
+- Human owner: Unassigned
+- Branch/worktree: `fix/hachimi-progression`, `C:/Users/somen/OneDrive/Desktop/want-main`
+- Started / last updated: 21 November 2026 (Asia/Calcutta)
+- Scope / owned files: `src/content/maps/library.ts`
+- Acceptance criteria: after talking to Hachimi and completing the bracelet scene ("Go home." objective), the player can walk to the library→dorm door at (15,4) and leave the library; `npm test` passes and no new TypeScript errors in `library.ts`.
+- Completed so far: found the root cause — library map grid row 4 ended in `#` at column 15, but the library→dorm door is placed at (15,4), so that tile was a wall and the player could never reach the exit after the bracelet scene. Changed grid row 4 from `'D..............#'` to `'D..............D'` so the door tile is walkable.
+- Verification: `npm test` passes 17/17. `library.ts` has no TypeScript errors. `npm run check` fails only on pre-existing errors in the uncommitted in-flight `WorldScene.ts`/`RescueScene.ts` (none reference `library.ts`).
+- Blockers / remaining work: manual keyboard playthrough of the library→dorm transition in both modes is still pending (no visible desktop/browser in this environment). `npm run check` gate blocked by pre-existing unrelated TS errors from another agent's uncommitted work (not caused by this fix).
+- Next action: manual playthrough verification of the library→dorm door, then PR to main per TEAM_WORKFLOW.md.
+- Handoff / integration: branch only; commit pending.
+
 - **20 November 2026 - BUG-HUNT-001 - Arena agent:** hunted and fixed seven runtime/asset bugs that the static checks do not catch. Cutscene `imagePath()` now resolves asset IDs through `runtime-manifest.json` (portraits were 404'ing); `man-1-speaking-pose` and `man-2-speaking-pose` were added to the manifest so `c02`'s Man 1/Man 2 portraits are actually copied and served; the cutscene fallback now renders the generated `default-template.png` instead of only a text card; `WorldScene.characterSprites` keys fixed to `man-1`/`man-2` so those NPCs no longer fall back to K's sprite; `RescueScene` cover block `y` corrected to `ARENA_H`; `RescueScene.init()` marks a `not-started` run `active` so a death is saved as `failed`; and the clinic/settlement delayed auto-triggers re-check their flags so they cannot relaunch an already-finished sequence. `npm run check` passes (23 assets, strict TypeScript, 17/17 tests, production build; expected Phaser chunk warning). All five ledger `imageId`s verified to resolve to real `public/assets` files; sprite atlases decoded and confirmed 3×2 with six non-empty frames. Browser/manual playthrough Not run. Reported untouched gaps: checkpoint is never advanced (Continue still resumes at `campus`) and the dialogue `cutsceneId`s (`C01`–`C03`) are unused/case-mismatched. Branch only.
 - **20 November 2026 - BUG-HUNT-001 - Arena agent:** integrated the seven asset/scene fixes on `master`. Committed the branch as `a98faa2`, pushed it, opened PR #1 to `master`, and merged it as merge commit `41cea1b` (merged 2026-11-20T19:48:24Z). `origin/master` now contains the merge commit plus the fix; the `arena/d6ee5f65-unga-bunga-hacknpitch` branch has no unique commits beyond `master`. The BUG-HUNT-001 entry now records `merged to master`.
 
