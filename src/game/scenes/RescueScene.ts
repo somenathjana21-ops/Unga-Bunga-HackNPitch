@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { newRun, completeMilestone, restartRescue, type RunState } from '../state';
 import type { Difficulty } from '../rules';
 import { difficultyRules, MAX_HEALTH } from '../rules';
-import { saveRun } from '../services/local-save';
+import { saveRun } from '../../services/local-save';
 import type { CombatEnemy, CombatBullet, CoverRect, EnemyKind } from '../combat/types';
 import { DamageSystem } from '../combat/damage';
 import { Player } from '../combat/player';
@@ -78,7 +78,7 @@ export class RescueScene extends Phaser.Scene {
   private isshinSprite!: Phaser.GameObjects.Ellipse;
   private switchSprite!: Phaser.GameObjects.Rectangle;
   private enemyGraphics = new Map<string, Phaser.GameObjects.Ellipse>();
-  private bulletGraphics = new Map<string, Phaser.GameObjects.Graphics>();
+  private bulletGraphics = new Map<string, Phaser.GameObjects.Arc>();
   private bulletSeq = 0;
   private hitFlash!: Phaser.GameObjects.Rectangle;
   private hitText!: Phaser.GameObjects.Text;
@@ -239,7 +239,7 @@ export class RescueScene extends Phaser.Scene {
       .rectangle(0, 0, width, height, 0x000000, 0.55)
       .setOrigin(0).setDepth(120).setVisible(false);
     this.pauseOverlay.setScrollFactor(0);
-    const pauseTitle = this.add
+    this.add
       .text(width / 2, height / 2 - 20, 'PAUSED', {
         fontSize: '28px', fontFamily: 'monospace', color: '#ffffff',
       }).setOrigin(0.5).setDepth(121).setVisible(false).setScrollFactor(0);
@@ -259,7 +259,7 @@ export class RescueScene extends Phaser.Scene {
     }).setOrigin(0.5);
     const cardBody = this.add.text(0, -10, 'Dodge through a near hit. When COUNTER - CLICK appears, click to fire into the opening.', {
       fontSize: '14px', fontFamily: 'monospace', color: '#e2e8f0', align: 'center',
-    }).setOrigin(0.5).setLineHeight(1.4);
+    }).setOrigin(0.5).setLineSpacing(4);
     const cardHint = this.add.text(0, 55, 'Click anywhere to continue', {
       fontSize: '14px', fontFamily: 'monospace', color: '#cbd5e1',
     }).setOrigin(0.5);
@@ -278,7 +278,7 @@ export class RescueScene extends Phaser.Scene {
     }).setOrigin(0.5);
     const goHint = this.add.text(0, -20, 'K couldn\'t make it through. The attempt failed.', {
       fontSize: '14px', fontFamily: 'monospace', color: '#e2e8f0',
-    }).setOrigin(0.5).setWrapWidth(320);
+    }).setOrigin(0.5).setWordWrapWidth(320);
     const restartBtn = this.add
       .rectangle(0, 24, 220, 36, 0x4cc9f0)
       .setInteractive({ useHandCursor: true })
@@ -307,7 +307,7 @@ export class RescueScene extends Phaser.Scene {
     }).setOrigin(0.5);
     const endBody = this.add.text(0, -25, 'Lina reached Mai\'s safe marker. girl-rescued once — health fully recovered.', {
       fontSize: '14px', fontFamily: 'monospace', color: '#e2e8f0', align: 'center',
-    }).setOrigin(0.5).setLineHeight(1.4).setWrapWidth(360);
+    }).setOrigin(0.5).setLineSpacing(4).setWordWrapWidth(360);
     const endLine = this.add.text(0, 30, '“You were the person who stayed.”', {
       fontSize: '15px', fontFamily: 'monospace', color: '#fde047',
     }).setOrigin(0.5);
@@ -566,7 +566,6 @@ export class RescueScene extends Phaser.Scene {
   }
 
   private maybeAdvanceBeat() {
-    const beat = this.currentBeat();
     const active = this.enemies.filter((e) => e.phase !== 'dead').length;
     const allSpawned = this.nextSpawnIndex >= this.spawnQueue.length;
 
@@ -808,8 +807,6 @@ export class RescueScene extends Phaser.Scene {
   }
 
   private syncGraphics() {
-    const cam = this.cameras.main;
-
     this.playerSprite.setPosition(this.player.x, this.player.y);
     this.switchSprite.setPosition(SWITCH_POS.x, SWITCH_POS.y);
     if (this.switchHold.active) {

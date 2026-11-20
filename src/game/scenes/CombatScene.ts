@@ -1,12 +1,13 @@
 import Phaser from 'phaser';
 import { newRun } from '../state';
-import type { Difficulty, RunState } from '../state';
+import type { RunState } from '../state';
+import type { Difficulty } from '../rules';
 import { difficultyRules, combatTuning, MAX_HEALTH } from '../rules';
-import { saveRun } from '../services/local-save';
+import { saveRun } from '../../services/local-save';
 import type { CombatEnemy, CombatBullet, CoverRect, EnemyKind } from '../combat/types';
 import { DamageSystem } from '../combat/damage';
 import { Player } from '../combat/player';
-import { makeEnemy } from '../combat/enemy';
+import { makeEnemy, updateEnemy } from '../combat/enemy';
 import { updateBullet } from '../combat/bullet';
 
 // Dev tuning for the isolated arena. Not part of the shared combatTuning contract.
@@ -45,7 +46,7 @@ export class CombatScene extends Phaser.Scene {
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private playerSprite!: Phaser.GameObjects.Ellipse;
   private enemyGraphics = new Map<string, Phaser.GameObjects.Ellipse>();
-  private bulletGraphics = new Map<string, Phaser.GameObjects.Ellipse>();
+  private bulletGraphics = new Map<string, Phaser.GameObjects.Arc>();
   private coverGraphics!: Phaser.GameObjects.Graphics;
   private telegraphGraphics!: Phaser.GameObjects.Graphics;
   private hitFlash!: Phaser.GameObjects.Rectangle;
@@ -517,8 +518,6 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private syncGraphics() {
-    const cam = this.cameras.main;
-
     this.playerSprite.setPosition(this.player.x, this.player.y);
 
     const liveEnemyIds = new Set<string>();
@@ -578,7 +577,8 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private updateHUD(effNow?: number) {
-    const d = difficultyRules[this.difficulty];
+    const rules = difficultyRules as unknown as Record<Difficulty, typeof difficultyRules.story>;
+    const d = rules[this.difficulty];
     const seg = d.damagePerHit;
     const numSegments = Math.round(MAX_HEALTH / seg);
     const filled = Math.min(numSegments, Math.ceil(Math.max(0, this.state.health) / seg));

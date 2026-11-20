@@ -106,6 +106,15 @@ function renderShot(shot: CutsceneShot, transform: { scale: number; x: number; y
     image.alt = shot.caption;
     const label = shot.kind === 'portrait' ? 'Character portrait' : 'Environment';
     image.setAttribute('aria-label', `${label}: ${shot.caption}`);
+    // Fall back to the default template placeholder when generated art is
+    // still being produced and the referenced image cannot load.
+    image.onerror = () => {
+      image.onerror = null;
+      image.hidden = true;
+      card.hidden = false;
+      card.textContent = shot.caption + ' (art pending)';
+      card.setAttribute('aria-live', 'polite');
+    };
   }
 
   captionEl.textContent = shot.caption;
@@ -133,6 +142,13 @@ function showFallback(shot: CutsceneShot): void {
     image.hidden = false;
     image.src = imagePath(shot.imageId);
     image.alt = shot.caption;
+    image.onerror = () => {
+      image.onerror = null;
+      image.hidden = true;
+      card.hidden = false;
+      card.textContent = shot.caption + ' (art pending)';
+      card.setAttribute('aria-live', 'polite');
+    };
   } else {
     card.hidden = false;
     card.textContent = shot.caption;

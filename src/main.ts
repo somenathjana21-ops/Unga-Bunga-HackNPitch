@@ -14,10 +14,11 @@ import type { RunState } from './game/state';
 const devCombatButton = import.meta.env.DEV
   ? '<button id="dev-combat-test" class="secondary">Combat test (dev)</button>'
   : '';
-
 const devRescueButton = import.meta.env.DEV
   ? '<button id="dev-rescue-test" class="secondary">Rescue test (dev)</button>'
   : '';
+void devCombatButton;
+void devRescueButton;
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <main class="shell">

@@ -1,5 +1,5 @@
-import { combatTuning, difficultyRules } from '../rules';
-import type { CombatEnemy, Difficulty, EnemyKind } from './types';
+import { combatTuning, difficultyRules, type Difficulty } from '../rules';
+import type { CombatEnemy, EnemyKind } from './types';
 
 let enemyIdSeq = 0;
 let attackIdSeq = 0;
@@ -18,7 +18,8 @@ const BLOCKED_UNTIL_MS = 90000;
 const ENEMY_BULLET_SPEED = 420;
 
 export function makeEnemy(kind: EnemyKind, x: number, y: number, difficulty: Difficulty, now: number): CombatEnemy {
-  const mult = difficultyRules[difficulty].enemyHealthMultiplier;
+  const rules = difficultyRules as unknown as Record<Difficulty, typeof difficultyRules.story>;
+  const mult = rules[difficulty].enemyHealthMultiplier;
   const maxHealth = Math.max(1, Math.round(combatTuning.baseEnemyHealth * mult));
   return {
     id: nextEnemyId(),
@@ -30,7 +31,7 @@ export function makeEnemy(kind: EnemyKind, x: number, y: number, difficulty: Dif
     maxHealth,
     phase: 'idle',
     attackId: null,
-    attackDamage: difficultyRules[difficulty].damagePerHit,
+    attackDamage: rules[difficulty].damagePerHit,
     telegraphT: 0,
     dirX: 1,
     dirY: 0,

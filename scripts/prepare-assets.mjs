@@ -15,10 +15,13 @@ for (const asset of manifest.assets) {
   const source = resolve(root, asset.source);
   const publicRoot = resolve(root, 'public/assets');
   const destination = resolve(publicRoot, asset.output);
-  for (const [base, target] of [[resolve(root, 'assets/characters'), source], [publicRoot, destination]]) {
-    const rel = relative(base, target);
-    if (rel.startsWith('..') || isAbsolute(rel)) throw new Error(`Asset path escapes its folder: ${asset.id}`);
-  }
+  const sourceOk = [resolve(root, 'assets/characters'), resolve(root, 'assets/backgrounds')].some((base) => {
+    const rel = relative(base, source);
+    return !rel.startsWith('..') && !isAbsolute(rel);
+  });
+  if (!sourceOk) throw new Error(`Asset path escapes its folder: ${asset.id}`);
+  const destRel = relative(publicRoot, destination);
+  if (destRel.startsWith('..') || isAbsolute(destRel)) throw new Error(`Asset output path escapes its folder: ${asset.id}`);
   const data = await readFile(source);
   if (data.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') throw new Error(`Not a PNG: ${asset.id}`);
   if (data.readUInt32BE(16) !== asset.width || data.readUInt32BE(20) !== asset.height) {
