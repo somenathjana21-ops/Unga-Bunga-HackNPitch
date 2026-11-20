@@ -6,7 +6,13 @@ import { loadRun, saveRun } from '../src/services/local-save';
 import { canEnter } from '../src/game/maps/preview-room';
 import { dialogueSequences } from '../src/content/dialogue/sequences';
 import { cutscenes } from '../src/content/cutscenes/ledger';
+import { campusMap } from '../src/content/maps/campus';
+import { libraryMap } from '../src/content/maps/library';
+import { dormMap } from '../src/content/maps/dorm';
+import { clinicMap } from '../src/content/maps/clinic';
 import { settlementMap } from '../src/content/maps/settlement';
+import { canWalkTo } from '../src/content/maps';
+import { createStoryProgress, completeSequence, hasFlag, markSettlementInteraction, areAllSettlementInteractionsDone } from '../src/game/story-state';
 
 describe('campaign promises', () => {
   it('Real Mode kills on the second hit, even across scenes', () => {
@@ -110,5 +116,64 @@ describe('campaign promises', () => {
     expect(rescueDoor).toBeDefined();
     expect(rescueDoor?.requiresFlag).toBe('settlement-cry-heard');
     expect(settlementMap.grid[4][15]).toBe('D');
+  });
+  it('story progression chain reaches clinic after Mai appears and unlocks settlement and rescue doors', () => {
+    const progress = createStoryProgress();
+    const runSeq = (id: string) => {
+      const seq = dialogueSequences[id];
+      expect(seq).toBeDefined();
+      completeSequence(progress, seq.id, seq.completionFlag);
+    };
+
+    // Campus -> Library
+    expect(canWalkTo(campusMap, 15, 4)).toBe(true);
+    // Library -> Dorm
+    runSeq('library-hachimi-meet');
+    runSeq('library-bracelet-scene');
+    const dormDoor = libraryMap.doors.find(d => d.targetMap === 'dorm');
+    expect(dormDoor).toBeDefined();
+    expect(hasFlag(progress, dormDoor!.requiresFlag!)).toBe(true);
+    expect(canWalkTo(libraryMap, dormDoor!.position.x, dormDoor!.position.y)).toBe(true);
+
+    // Dorm -> Breach (Mai appears) -> Clinic
+    runSeq('dorm-kingsley-talk');
+    runSeq('dorm-tv-broadcast-1');
+    runSeq('dorm-tv-broadcast-2');
+    runSeq('breach-wake');
+    // Once awake during breach, the library return door is locked and (0,7) triggers the breach
+    const returnDoor = dormMap.doors.find(d => d.targetMap === 'library');
+    expect(returnDoor?.excludesFlag).toBe('breach-woke');
+    expect(dormMap.triggers.some(t => t.position.x === 0 && t.position.y === 7 && t.dialogueId === 'breach-door')).toBe(true);
+    runSeq('breach-door');
+    runSeq('breach-attack');
+    expect(hasFlag(progress, 'breach-survived')).toBe(true);
+    expect(dialogueSequences['breach-attack'].cutsceneId).toBe('c02');
+
+    // Clinic (Mai wake -> window -> Mai history 1 & 2 -> Isshin -> Mai wrong-name 2 & 3) -> Settlement
+    runSeq('clinic-wake');
+    runSeq('clinic-window');
+    expect(dialogueSequences['clinic-window'].cutsceneId).toBe('c03');
+    for (const seqId of ['clinic-mai-history-1', 'clinic-mai-history-2', 'clinic-wrong-name-1', 'clinic-wrong-name-2', 'clinic-wrong-name-3']) {
+      const npc = clinicMap.npcs.find(n => n.dialogueId === seqId);
+      expect(npc).toBeDefined();
+      if (npc?.requiresFlag) expect(hasFlag(progress, npc.requiresFlag)).toBe(true);
+      runSeq(seqId);
+    }
+    const settlementDoor = clinicMap.doors.find(d => d.targetMap === 'settlement');
+    expect(settlementDoor).toBeDefined();
+    expect(hasFlag(progress, settlementDoor!.requiresFlag!)).toBe(true);
+    expect(canWalkTo(clinicMap, settlementDoor!.position.x, settlementDoor!.position.y)).toBe(true);
+
+    // Settlement (3 interactions + cry for help) -> Rescue
+    for (const seqId of ['settlement-ration-table', 'settlement-barricade', 'settlement-shelter-board']) {
+      runSeq(seqId);
+      markSettlementInteraction(progress, dialogueSequences[seqId].completionFlag);
+    }
+    expect(areAllSettlementInteractionsDone(progress)).toBe(true);
+    runSeq('settlement-cry-for-help');
+    const rescueDoor = settlementMap.doors.find(d => d.targetMap === 'rescue');
+    expect(rescueDoor).toBeDefined();
+    expect(hasFlag(progress, rescueDoor!.requiresFlag!)).toBe(true);
+    expect(canWalkTo(settlementMap, rescueDoor!.position.x, rescueDoor!.position.y)).toBe(true);
   });
 });

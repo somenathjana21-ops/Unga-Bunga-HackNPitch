@@ -27,6 +27,7 @@ export class DialogueScene extends Phaser.Scene {
   private choiceIndex = 0;
   private selectedChoiceFlag?: string;
   private choiceResponseText = '';
+  private finished = false;
 
   // UI elements
   private portraitImage?: Phaser.GameObjects.Image;
@@ -54,6 +55,7 @@ export class DialogueScene extends Phaser.Scene {
     this.choiceIndex = 0;
     this.selectedChoiceFlag = undefined;
     this.choiceResponseText = '';
+    this.finished = false;
   }
 
   create() {
@@ -253,6 +255,8 @@ export class DialogueScene extends Phaser.Scene {
   }
 
   private finish() {
+    if (this.finished) return;
+    this.finished = true;
     this.onComplete(this.sequenceId, this.completionFlag, this.selectedChoiceFlag);
     this.scene.stop();
   }

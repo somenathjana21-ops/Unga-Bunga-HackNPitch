@@ -178,12 +178,23 @@ function playShotAudio(shot: CutsceneShot): void {
   }
 }
 
-function startAutoAdvance(shot: CutsceneShot): void {
+let activeKeyHandler: ((event: KeyboardEvent) => void) | null = null;
+
+function detachInputHandlers(): void {
+  if (activeKeyHandler) {
+    window.removeEventListener('keydown', activeKeyHandler, true);
+    activeKeyHandler = null;
+  }
+  if (skipEl) skipEl.onclick = null;
+  if (nextEl) nextEl.onclick = null;
+}
+
+function startAutoAdvance(shot: CutsceneShot, onAdvance: () => void): void {
   stopAutoAdvance();
   if (shot.advanceAfterMs != null) {
     autoTimer = window.setTimeout(() => {
       autoTimer = null;
-      controller?.advance();
+      onAdvance();
     }, shot.advanceAfterMs);
   }
 }
@@ -211,8 +222,16 @@ function renderFrame(): void {
 }
 
 function show(cutscene: Cutscene, reducedMotion: boolean, onComplete: (cutsceneId: string) => void): void {
+  stopAutoAdvance();
+  if (rafId !== null) {
+    cancelAnimationFrame(rafId);
+    rafId = null;
+  }
+  detachInputHandlers();
+
   const el = ensureOverlay();
   refs();
+  el.hidden = false;
   const titleEl = document.getElementById('cutscene-title') as HTMLElement | null;
   if (titleEl) titleEl.textContent = cutscene.title;
 
@@ -224,36 +243,85 @@ function show(cutscene: Cutscene, reducedMotion: boolean, onComplete: (cutsceneI
       stopAutoAdvance();
       if (rafId !== null) cancelAnimationFrame(rafId);
       rafId = null;
+      detachInputHandlers();
       el.hidden = true;
       controller = null;
+      const previewEl = document.getElementById('preview');
+      const gameEl = document.getElementById('game');
+      if (gameEl && previewEl && !previewEl.hidden) {
+        gameEl.focus({ preventScroll: true });
+      }
       onComplete(id);
     },
   });
 
-  skipEl!.addEventListener('click', () => controller!.skip());
-  nextEl!.addEventListener('click', () => controller!.advance());
-
-  const onKey = (event: KeyboardEvent) => {
-    if (!controller) return;
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      controller.skip();
-    } else if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      controller.advance();
-    }
-  };
-  el.addEventListener('keydown', onKey);
-
   const renderShotNow = () => {
-    const current = controller!.current;
-    if (!current) return;
+    const current = controller?.current;
+    if (!current || !controller) return;
+    panStart = performance.now();
     renderShot(current.shot, current.transform);
     playShotAudio(current.shot);
-    startAutoAdvance(current.shot);
-    if (!controller!.completed) rafId = requestAnimationFrame(renderFrame);
+    if (nextEl) {
+      nextEl.disabled = false;
+      nextEl.textContent = current.last ? 'Finish' : 'Next';
+    }
+    startAutoAdvance(current.shot, advanceAndRender);
+    if (!controller.completed && rafId === null) {
+      rafId = requestAnimationFrame(renderFrame);
+    }
   };
+
+  const advanceAndRender = () => {
+    if (!controller || controller.completed) return;
+    stopAutoAdvance();
+    controller.advance();
+    if (controller && !controller.completed) {
+      renderShotNow();
+    }
+  };
+
+  const skipNow = () => {
+    if (!controller || controller.completed) return;
+    stopAutoAdvance();
+    controller.skip();
+  };
+
+  if (skipEl) skipEl.onclick = skipNow;
+  if (nextEl) nextEl.onclick = advanceAndRender;
+
+  activeKeyHandler = (event: KeyboardEvent) => {
+    if (!controller) return;
+    if (event.repeat) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      skipNow();
+    } else if (event.key === 'Enter' || event.key === ' ' || event.key === 'e' || event.key === 'E') {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      advanceAndRender();
+    } else if (
+      event.key === 'ArrowUp' || event.key === 'ArrowDown' ||
+      event.key === 'ArrowLeft' || event.key === 'ArrowRight' ||
+      event.key === 'w' || event.key === 'a' || event.key === 's' || event.key === 'd' ||
+      event.key === 'W' || event.key === 'A' || event.key === 'S' || event.key === 'D'
+    ) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  };
+  window.addEventListener('keydown', activeKeyHandler, true);
+
   renderShotNow();
+  nextEl?.focus({ preventScroll: true });
+}
+
+export function isCutsceneActive(): boolean {
+  return controller !== null;
 }
 
 export function playCutsceneOverlay(options: {
@@ -275,6 +343,7 @@ export function destroyCutscenePlayer(): void {
   stopAutoAdvance();
   if (rafId !== null) cancelAnimationFrame(rafId);
   rafId = null;
+  detachInputHandlers();
   if (overlay) {
     overlay.remove();
     overlay = null;

@@ -10,7 +10,7 @@ import { makeEnemy, updateEnemy } from '../combat/enemy';
 import { updateBullet } from '../combat/bullet';
 import type { RescueBeatDef } from '../../content/encounters/rescue-beats';
 import { rescueBeats } from '../../content/encounters/rescue-beats';
-import { playCutsceneOverlay } from '../../ui/cutscene-player';
+import { playCutsceneOverlay, isCutsceneActive } from '../../ui/cutscene-player';
 import { loadPreferences } from '../../services/preferences';
 
 // Rescue mission arena. One continuous combat scene runs the three rescue beats
@@ -238,7 +238,8 @@ export class RescueScene extends Phaser.Scene {
       'W,A,S,D,UP,LEFT,DOWN,RIGHT,SPACE,ESC,E',
     ) as Record<string, Phaser.Input.Keyboard.Key>;
     this.input.keyboard!.addCapture(['UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE', 'ESC', 'E']);
-    this.input.on('pointerdown', () => this.tryFire());
+    const onPointerDown = () => this.tryFire();
+    this.input.on('pointerdown', onPointerDown);
 
     // Service lane arena backdrop
     if (this.textures.exists('bg-rescue')) {
@@ -404,7 +405,7 @@ export class RescueScene extends Phaser.Scene {
     this.endingPanel.setInteractive({ useHandCursor: true, hitArea: new Phaser.Geom.Rectangle(-260, -155, 520, 310), hitAreaCallback: Phaser.Geom.Rectangle.Contains });
 
     // Chapter one ending backdrop behind the ending panel.
-    this.endingBackground = this.add.image(0, 0, 'bg-ending').setOrigin(0.5);
+    this.endingBackground = this.add.image(width / 2, height / 2, 'bg-ending').setOrigin(0.5);
     this.endingBackground
       .setDisplaySize(this.cameras.main.width, this.cameras.main.height)
       .setDepth(125)
@@ -417,14 +418,16 @@ export class RescueScene extends Phaser.Scene {
 
     this.spawnBeatEnemies(this.now(performance.now()));
 
-    this.game.events.on('hidden', () => this.setPaused(true));
-    this.game.events.on('visible', () => this.setPaused(false, true));
+    const onGameHidden = () => this.setPaused(true);
+    const onGameVisible = () => this.setPaused(false, true);
+    this.game.events.on('hidden', onGameHidden);
+    this.game.events.on('visible', onGameVisible);
 
     this.events.once('shutdown', () => {
-      this.game.events.off('hidden', () => this.setPaused(true));
-      this.game.events.off('visible', () => this.setPaused(false, true));
+      this.game.events.off('hidden', onGameHidden);
+      this.game.events.off('visible', onGameVisible);
       this.input.keyboard?.removeAllKeys(true);
-      this.input.off('pointerdown', () => this.tryFire());
+      this.input.off('pointerdown', onPointerDown);
     });
 
     this.updateHUD();
@@ -455,7 +458,15 @@ export class RescueScene extends Phaser.Scene {
   // ---------- main loop ----------
 
   update(time: number, dt: number) {
-    if (this.teachingPaused || this.paused || this.defeated || this.ended) return;
+    if (this.teachingPaused || this.defeated || this.ended || isCutsceneActive()) return;
+
+    // Esc toggles pause even while currently paused.
+    if (Phaser.Input.Keyboard.JustDown(this.keys.ESC)) {
+      this.setPaused(!this.paused);
+      return;
+    }
+
+    if (this.paused) return;
 
     const effNow = this.now(time);
 
@@ -478,12 +489,6 @@ export class RescueScene extends Phaser.Scene {
     // Space dodge.
     if (Phaser.Input.Keyboard.JustDown(this.keys.SPACE) && this.player.canDodge(effNow)) {
       this.player.startDodge(effNow);
-    }
-
-    // Esc pauses.
-    if (Phaser.Input.Keyboard.JustDown(this.keys.ESC)) {
-      this.setPaused(!this.paused);
-      return;
     }
 
     // E: extraction switch (only in extraction beat, in range).

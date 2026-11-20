@@ -43,6 +43,8 @@ export interface MapDoor {
   targetSpawn: MapPosition;
   /** Optional: only usable if this flag is set. */
   requiresFlag?: string;
+  /** Optional: only usable if this flag is NOT set. */
+  excludesFlag?: string;
   /** Optional: objective text shown when entering this map. */
   objective?: string;
 }

@@ -74,4 +74,26 @@ describe('cutscene playback', () => {
     expect(t.scale).toBeCloseTo(1.03);
     expect(t.x).toBeCloseTo(0.01);
   });
+
+  it('plays c01, c02, c03, and c04 sequentially to completion once each', () => {
+    for (const id of ['c01', 'c02', 'c03', 'c04'] as const) {
+      const cs = cutscenes[id]!;
+      let completions = 0;
+      const ctrl = playCutscene(cs, {
+        reducedMotion: false,
+        onComplete: (completedId) => {
+          expect(completedId).toBe(id);
+          completions++;
+        },
+      });
+      let steps = 0;
+      while (!ctrl.completed && steps < 30) {
+        ctrl.advance();
+        steps++;
+      }
+      expect(ctrl.completed).toBe(true);
+      expect(steps).toBe(cs.shots.length);
+      expect(completions).toBe(1);
+    }
+  });
 });

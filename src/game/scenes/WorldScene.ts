@@ -8,7 +8,7 @@ import {
 } from '../story-state';
 import type { StoryProgress } from '../story-state';
 import { dialogueSequences } from '../../content/dialogue/sequences';
-import { playCutsceneOverlay } from '../../ui/cutscene-player';
+import { playCutsceneOverlay, isCutsceneActive } from '../../ui/cutscene-player';
 import { loadPreferences } from '../../services/preferences';
 import { saveRun } from '../../services/local-save';
 import type { RunState } from '../state';
@@ -50,6 +50,7 @@ export class WorldScene extends Phaser.Scene {
   private locationText?: Phaser.GameObjects.Text;
   private floorGraphics!: Phaser.GameObjects.Graphics;
   private backgroundSprite?: Phaser.GameObjects.Image;
+  private visitedMaps: Set<string> = new Set();
 
   constructor() { super('WorldScene'); }
 
@@ -120,7 +121,7 @@ export class WorldScene extends Phaser.Scene {
     this.input.keyboard!.addCapture(['UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE']);
     this.input.keyboard!.on('keydown-E', () => this.tryInteract());
     this.input.keyboard!.on('keydown-ESC', () => {
-      if (!this.scene.isActive('DialogueScene')) {
+      if (!this.scene.isActive('DialogueScene') && !isCutsceneActive()) {
         document.querySelector<HTMLButtonElement>('#back-to-menu')?.click();
       }
     });
@@ -147,13 +148,16 @@ export class WorldScene extends Phaser.Scene {
 
     const oldMap = this.map;
     this.map = getMap(mapId);
-    // Carry a story-advanced objective across room transitions instead of
-    // regressing to a previous map's static text (e.g. "Go home." must not flip
-    // back to "Find Hachimi outside the library." when leaving the library).
+    // Preserve a story-advanced objective when revisiting an earlier room
+    // (e.g. "Go home." must not regress when backtracking), while adopting the
+    // new room's objective on first entry (e.g. dorm -> clinic must not keep
+    // "Check the door.").
+    const revisited = this.visitedMaps.has(mapId);
     let nextObjective = this.map.objective;
-    if (oldMap && this.progress.objective !== oldMap.objective) {
+    if (revisited && oldMap && this.progress.objective !== oldMap.objective) {
       nextObjective = this.progress.objective;
     }
+    this.visitedMaps.add(mapId);
     enterMap(this.progress, mapId, nextObjective);
     this.tile = { ...this.map.spawn };
 
@@ -168,7 +172,9 @@ export class WorldScene extends Phaser.Scene {
       // Re-check inside the callback: the player may have talked to Mai and
       // finished the wake sequence before this delayed call fires.
       this.time.delayedCall(500, () => {
-        if (!hasFlag(this.progress, 'clinic-woke')) this.startDialogue('clinic-wake');
+        if (this.map.id === 'clinic' && !hasFlag(this.progress, 'clinic-woke')) {
+          this.startDialogue('clinic-wake');
+        }
       });
     }
 
@@ -176,7 +182,9 @@ export class WorldScene extends Phaser.Scene {
     if (mapId === 'settlement' && areAllSettlementInteractionsDone(this.progress) && !hasFlag(this.progress, 'settlement-cry-heard')) {
       // Same guard: the player may reach the east lane trigger before this fires.
       this.time.delayedCall(1000, () => {
-        if (!hasFlag(this.progress, 'settlement-cry-heard')) this.startDialogue('settlement-cry-for-help');
+        if (this.map.id === 'settlement' && !hasFlag(this.progress, 'settlement-cry-heard')) {
+          this.startDialogue('settlement-cry-for-help');
+        }
       });
     }
   }
@@ -365,7 +373,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   update() {
-    if (this.scene.isActive('DialogueScene') || this.moving) return;
+    if (this.scene.isActive('DialogueScene') || isCutsceneActive() || this.moving) return;
 
     let dx = 0;
     let dy = 0;
@@ -425,6 +433,7 @@ export class WorldScene extends Phaser.Scene {
   private checkDoors() {
     for (const door of this.map.doors) {
       if (door.position.x !== this.tile.x || door.position.y !== this.tile.y) continue;
+      if (door.excludesFlag && hasFlag(this.progress, door.excludesFlag)) continue;
       if (door.requiresFlag && !hasFlag(this.progress, door.requiresFlag)) continue;
       if (door.targetMap === 'rescue') {
         this.startRescueMission();
@@ -447,7 +456,7 @@ export class WorldScene extends Phaser.Scene {
       rescueStatus: 'active',
     };
     saveRun(runState);
-    this.scene.start('RescueScene', {
+    this.scene.start('rescue', {
       state: runState,
       difficulty: runState.difficulty,
     });
@@ -480,7 +489,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private tryInteract() {
-    if (this.scene.isActive('DialogueScene')) return;
+    if (this.scene.isActive('DialogueScene') || isCutsceneActive()) return;
 
     // Check interactables
     for (const item of this.map.interactables) {
@@ -529,7 +538,11 @@ export class WorldScene extends Phaser.Scene {
       }
     } else if (completionFlag === 'breach-door-examined') {
       // Auto-trigger the breach attack immediately after examining the door
-      this.time.delayedCall(600, () => this.startDialogue('breach-attack'));
+      this.time.delayedCall(600, () => {
+        if (this.map.id === 'dorm' && !hasFlag(this.progress, 'breach-survived')) {
+          this.startDialogue('breach-attack');
+        }
+      });
     } else if (completionFlag === 'breach-survived') {
       // Handled via cutscene overlay completion (or fallback if cutscene fails)
       const hasCutscene = Boolean(dialogueSequences[sequenceId]?.cutsceneId);
@@ -541,8 +554,10 @@ export class WorldScene extends Phaser.Scene {
       this.progress.objective = 'Look out the window.';
       this.objectiveText.setText(`Objective: ${this.progress.objective}`);
     } else if (completionFlag === 'clinic-window-seen') {
-      this.progress.objective = 'Speak to Mai.';
-      this.objectiveText.setText(`Objective: ${this.progress.objective}`);
+      if (!hasFlag(this.progress, 'clinic-history-part1')) {
+        this.progress.objective = 'Speak to Mai.';
+        this.objectiveText.setText(`Objective: ${this.progress.objective}`);
+      }
     } else if (completionFlag === 'clinic-history-part1') {
       this.progress.objective = 'Speak to Mai again.';
       this.objectiveText.setText(`Objective: ${this.progress.objective}`);
@@ -558,7 +573,11 @@ export class WorldScene extends Phaser.Scene {
     } else if (completionFlag === 'library-hachimi-met') {
       // Hachimi steps aside and K sees Sayu and Nero. Defer the bracelet scene
       // so the current DialogueScene has fully stopped before we launch the next one.
-      this.time.delayedCall(800, () => this.startDialogue('library-bracelet-scene'));
+      this.time.delayedCall(800, () => {
+        if (this.map.id === 'library' && !hasFlag(this.progress, 'library-breakup-done')) {
+          this.startDialogue('library-bracelet-scene');
+        }
+      });
     } else if (completionFlag === 'library-breakup-done') {
       this.progress.objective = 'Go home.';
       this.objectiveText.setText(`Objective: ${this.progress.objective}`);
@@ -595,7 +614,11 @@ export class WorldScene extends Phaser.Scene {
         reducedMotion,
         onComplete: () => {
           if (completionFlag === 'library-breakup-done') {
-            this.time.delayedCall(400, () => this.startDialogue('library-hachimi-farewell'));
+            this.time.delayedCall(400, () => {
+              if (this.map.id === 'library' && !hasFlag(this.progress, 'library-hachimi-farewell-done')) {
+                this.startDialogue('library-hachimi-farewell');
+              }
+            });
           } else if (completionFlag === 'breach-survived') {
             this.loadMap('clinic');
           }
