@@ -463,12 +463,12 @@
       "height": 958
     },
     {
-          "id": "sidewalk-tileset",
-          "source": "assets/tilesets/sidewalk-tileset.png",
-          "output": "tilesets/sidewalk-tileset.png",
-          "width": 1536,
-          "height": 1024
-        },
+      "id": "sidewalk-tileset",
+      "source": "assets/tilesets/sidewalk-tileset.png",
+      "output": "tilesets/sidewalk-tileset.png",
+      "width": 1536,
+      "height": 1024
+    },
     {
       "id": "default-background",
       "source": "assets/backgrounds/default-background.png",
@@ -477,74 +477,88 @@
       "height": 720
     },
     {
-          "id": "default-template",
-          "source": "assets/backgrounds/default-template.png",
-          "output": "backgrounds/default-template.png",
-          "width": 1280,
-          "height": 720
-        },
-        {
-          "id": "dorm-room-shared",
-          "source": "assets/backgrounds/dorm-room-shared.png",
-          "output": "backgrounds/dorm-room-shared.png",
-          "width": 1642,
-          "height": 958
-        },
-        {
-          "id": "dorm-room-portal-escape",
-          "source": "assets/backgrounds/dorm-room-portal-escape.png",
-          "output": "backgrounds/dorm-room-portal-escape.png",
-          "width": 1642,
-          "height": 958
-        },
-        {
-          "id": "moonlit-dorm-void-doorway",
-          "source": "assets/backgrounds/moonlit-dorm-void-doorway.png",
-          "output": "backgrounds/moonlit-dorm-void-doorway.png",
-          "width": 1642,
-          "height": 958
-        },
-        {
-          "id": "campus-library-approach",
-          "source": "assets/backgrounds/campus-library-approach.png",
-          "output": "backgrounds/campus-library-approach.png",
-          "width": 1642,
-          "height": 958
-        },
-        {
-          "id": "post-apocalyptic-clinic",
-          "source": "assets/backgrounds/post-apocalyptic-clinic.png",
-          "output": "backgrounds/post-apocalyptic-clinic.png",
-          "width": 1642,
-          "height": 958
-        },
-        {
-          "id": "clinic-window-city-view",
-          "source": "assets/backgrounds/clinic-window-city-view.png",
-          "output": "backgrounds/clinic-window-city-view.png",
-          "width": 1672,
-          "height": 941
-        },
-        {
-          "id": "post-apocalyptic-courtyard-camp",
-          "source": "assets/backgrounds/post-apocalyptic-courtyard-camp.png",
-          "output": "backgrounds/post-apocalyptic-courtyard-camp.png",
-          "width": 1642,
-          "height": 958
-        },
-        {
-          "id": "twilight-library-courtyard-encounter",
-          "source": "assets/backgrounds/twilight-library-courtyard-encounter.png",
-          "output": "backgrounds/twilight-library-courtyard-encounter.png",
-          "width": 1642,
-          "height": 958
-        },
-        {
-          "id": "twilight-ruins-warehouse-yard",
-          "source": "assets/backgrounds/twilight-ruins-warehouse-yard.png",
-          "output": "backgrounds/twilight-ruins-warehouse-yard.png",
-          "width": 1642,
-          "height": 958
-        }
-      ]
+      "id": "default-template",
+      "source": "assets/backgrounds/default-template.png",
+      "output": "backgrounds/default-template.png",
+      "width": 1280,
+      "height": 720
+    },
+    {
+      "id": "dorm-room-shared",
+      "source": "assets/backgrounds/dorm-room-shared.png",
+      "output": "backgrounds/dorm-room-shared.png",
+      "width": 1642,
+      "height": 958
+    },
+    {
+      "id": "dorm-room-portal-escape",
+      "source": "assets/backgrounds/dorm-room-portal-escape.png",
+      "output": "backgrounds/dorm-room-portal-escape.png",
+      "width": 1642,
+      "height": 958
+    },
+    {
+      "id": "moonlit-dorm-void-doorway",
+      "source": "assets/backgrounds/moonlit-dorm-void-doorway.png",
+      "output": "backgrounds/moonlit-dorm-void-doorway.png",
+      "width": 1642,
+      "height": 958
+    },
+    {
+      "id": "campus-library-approach",
+      "source": "assets/backgrounds/campus-library-approach.png",
+      "output": "backgrounds/campus-library-approach.png",
+      "width": 1642,
+      "height": 958
+    },
+    {
+      "id": "post-apocalyptic-clinic",
+      "source": "assets/backgrounds/post-apocalyptic-clinic.png",
+      "output": "backgrounds/post-apocalyptic-clinic.png",
+      "width": 1642,
+      "height": 958
+    },
+    {
+      "id": "clinic-window-city-view",
+      "source": "assets/backgrounds/clinic-window-city-view.png",
+      "output": "backgrounds/clinic-window-city-view.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "id": "post-apocalyptic-courtyard-camp",
+      "source": "assets/backgrounds/post-apocalyptic-courtyard-camp.png",
+      "output": "backgrounds/post-apocalyptic-courtyard-camp.png",
+      "width": 1642,
+      "height": 958
+    },
+    {
+      "id": "twilight-library-courtyard-encounter",
+      "source": "assets/backgrounds/twilight-library-courtyard-encounter.png",
+      "output": "backgrounds/twilight-library-courtyard-encounter.png",
+      "width": 1642,
+      "height": 958
+    },
+    {
+      "id": "twilight-ruins-warehouse-yard",
+      "source": "assets/backgrounds/twilight-ruins-warehouse-yard.png",
+      "output": "backgrounds/twilight-ruins-warehouse-yard.png",
+      "width": 1642,
+      "height": 958
+    },
+    {
+      "id": "pixel-art-rpg-character-sprite-sheet",
+      "source": "assets/backgrounds/pixel-art-rpg-character-sprite-sheet.png",
+      "output": "backgrounds/pixel-art-rpg-character-sprite-sheet.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "id": "lina-character-sheet",
+      "source": "assets/characters/lina/lina-character-sheet.png",
+      "output": "characters/lina/lina-character-sheet.png",
+      "width": 1312,
+      "height": 1199
     }
+  ]
+}

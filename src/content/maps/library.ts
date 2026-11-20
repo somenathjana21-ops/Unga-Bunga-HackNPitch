@@ -59,4 +59,5 @@ export const libraryMap: GameMap = {
       objective: 'Go home.',
     },
   ],
+  backgroundImageId: 'twilight-library-courtyard-encounter',
 };

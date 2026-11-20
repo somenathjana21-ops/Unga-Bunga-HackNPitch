@@ -94,4 +94,5 @@ export const clinicMap: GameMap = {
       objective: 'Explore the settlement.',
     },
   ],
+  backgroundImageId: 'post-apocalyptic-clinic',
 };

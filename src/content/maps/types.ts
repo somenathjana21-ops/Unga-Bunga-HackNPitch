@@ -71,4 +71,6 @@ export interface GameMap {
   doors: MapDoor[];
   /** Objective text shown when the player is on this map. */
   objective: string;
+  /** Optional full-map backdrop image (asset ID from runtime-manifest.json). */
+  backgroundImageId?: string;
 }

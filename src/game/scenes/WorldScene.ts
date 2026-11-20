@@ -42,6 +42,7 @@ export class WorldScene extends Phaser.Scene {
   private promptText!: Phaser.GameObjects.Text;
   private locationText?: Phaser.GameObjects.Text;
   private floorGraphics!: Phaser.GameObjects.Graphics;
+  private backgroundSprite?: Phaser.GameObjects.Image;
 
   constructor() { super('WorldScene'); }
 
@@ -84,6 +85,20 @@ export class WorldScene extends Phaser.Scene {
         this.load.image(key, p.path);
       }
     }
+    // Full-map backdrops (drawn behind the tile grid, one per map).
+    const backgrounds = [
+      'campus-library-approach',
+      'twilight-library-courtyard-encounter',
+      'dorm-room-shared',
+      'post-apocalyptic-clinic',
+      'post-apocalyptic-courtyard-camp',
+    ];
+    for (const id of backgrounds) {
+      const key = `bg-${id}`;
+      if (!this.textures.exists(key)) {
+        this.load.image(key, `/assets/backgrounds/${id}.png`);
+      }
+    }
     this.load.once('loaderror', () => {
       const status = document.querySelector('#preview-status');
       if (status) status.textContent = 'Some character art could not load. The story will continue with text only.';
@@ -117,9 +132,21 @@ export class WorldScene extends Phaser.Scene {
     if (this.objectiveText) this.objectiveText.destroy();
     if (this.promptText) this.promptText.destroy();
     if (this.locationText) this.locationText.destroy();
+    if (this.backgroundSprite) {
+      this.backgroundSprite.destroy();
+      this.backgroundSprite = undefined;
+    }
 
+    const oldMap = this.map;
     this.map = getMap(mapId);
-    enterMap(this.progress, mapId, this.map.objective);
+    // Carry a story-advanced objective across room transitions instead of
+    // regressing to a previous map's static text (e.g. "Go home." must not flip
+    // back to "Find Hachimi outside the library." when leaving the library).
+    let nextObjective = this.map.objective;
+    if (oldMap && this.progress.objective !== oldMap.objective) {
+      nextObjective = this.progress.objective;
+    }
+    enterMap(this.progress, mapId, nextObjective);
     this.tile = { ...this.map.spawn };
 
     this.drawMap();
@@ -147,6 +174,18 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private drawMap() {
+    // Full-map backdrop behind the tile grid (walls and doors draw on top).
+    const bgId = this.map.backgroundImageId;
+    if (bgId) {
+      const key = `bg-${bgId}`;
+      if (this.textures.exists(key)) {
+        this.backgroundSprite = this.add.image(0, 0, key).setOrigin(0, 0);
+        this.backgroundSprite
+          .setDisplaySize(this.scale.width, this.scale.height)
+          .setDepth(-1);
+      }
+    }
+
     this.floorGraphics = this.add.graphics();
     this.map.grid.forEach((row, y) => {
       [...row].forEach((cell, x) => {

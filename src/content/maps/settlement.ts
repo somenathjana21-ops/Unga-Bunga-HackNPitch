@@ -73,4 +73,5 @@ export const settlementMap: GameMap = {
       objective: 'Speak to Mai.',
     },
   ],
+  backgroundImageId: 'post-apocalyptic-courtyard-camp',
 };

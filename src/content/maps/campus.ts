@@ -56,4 +56,5 @@ export const campusMap: GameMap = {
       objective: 'Find Hachimi outside the library.',
     },
   ],
+  backgroundImageId: 'campus-library-approach',
 };

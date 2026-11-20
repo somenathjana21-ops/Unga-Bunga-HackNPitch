@@ -83,4 +83,5 @@ export const dormMap: GameMap = {
       objective: 'Find Hachimi outside the library.',
     },
   ],
+  backgroundImageId: 'dorm-room-shared',
 };
