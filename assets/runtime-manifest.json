@@ -241,10 +241,10 @@
     },
     {
       "id": "lina-idle-48px",
-      "source": "assets/characters/lina/lina-idle-48px.png",
+      "source": "assets/characters/_revisions/lina/lina-idle-48px.png",
       "output": "characters/lina/lina-idle-48px.png",
-      "width": 357,
-      "height": 320
+      "width": 48,
+      "height": 48
     },
     {
       "id": "lina-walk-48px",
@@ -255,10 +255,10 @@
     },
     {
       "id": "lina-shelter-48px",
-      "source": "assets/characters/lina/lina-shelter-48px.png",
+      "source": "assets/characters/_revisions/lina/lina-shelter-48px.png",
       "output": "characters/lina/lina-shelter-48px.png",
-      "width": 327,
-      "height": 134
+      "width": 48,
+      "height": 48
     },
     {
       "id": "scout-idle-4dir-48px",
@@ -499,7 +499,7 @@
     },
     {
       "id": "moonlit-dorm-void-doorway",
-      "source": "assets/backgrounds/moonlit-dorm-void-doorway.png",
+      "source": "assets/backgrounds/_revisions/moonlit-dorm-void-doorway.png",
       "output": "backgrounds/moonlit-dorm-void-doorway.png",
       "width": 1642,
       "height": 958
@@ -534,7 +534,7 @@
     },
     {
       "id": "twilight-library-courtyard-encounter",
-      "source": "assets/backgrounds/twilight-library-courtyard-encounter.png",
+      "source": "assets/backgrounds/_revisions/twilight-library-courtyard-encounter.png",
       "output": "backgrounds/twilight-library-courtyard-encounter.png",
       "width": 1642,
       "height": 958
@@ -632,10 +632,10 @@
     },
     {
       "id": "pixel-art-leather-wallet-icon",
-      "source": "assets/backgrounds/pixel-art-leather-wallet-icon.png",
+      "source": "assets/backgrounds/_revisions/pixel-art-leather-wallet-icon.png",
       "output": "backgrounds/pixel-art-leather-wallet-icon.png",
-      "width": 1254,
-      "height": 1254
+      "width": 48,
+      "height": 48
     },
     {
       "id": "pixel-art-braided-wristband",

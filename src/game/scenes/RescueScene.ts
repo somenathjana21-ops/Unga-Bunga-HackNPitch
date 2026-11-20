@@ -12,6 +12,7 @@ import type { RescueBeatDef } from '../../content/encounters/rescue-beats';
 import { rescueBeats } from '../../content/encounters/rescue-beats';
 import { playCutsceneOverlay, isCutsceneActive } from '../../ui/cutscene-player';
 import { loadPreferences } from '../../services/preferences';
+import { SPRITE_DISPLAY, directionFrame4Dir } from '../sprite-metrics';
 
 // Rescue mission arena. One continuous combat scene runs the three rescue beats
 // (alley -> shelter hold -> extraction) while preserving campaign health across
@@ -19,34 +20,28 @@ import { loadPreferences } from '../../services/preferences';
 // exactly once. Failure kills K, shows Game Over, and offers an explicit restart
 // of this mission only (not the campus/dorm story).
 
-const ARENA_W = 768;
-const ARENA_H = 432;
 const PLAYER_RADIUS = 10;
-const ENEMY_RADIUS = 14;
 const BULLET_RADIUS = 3;
 const HIT_FLASH_MS = 120;
 const HIT_TEXT_MS = 220;
 const FIRE_COOLDOWN_MS = 400;
 const BULLET_TTL_MS = 2000;
 const SWITCH_HOLD_MS = 1000; // hold E for one second to open the gate
-const LINA_RADIUS = 10;
-const MAI_RADIUS = 10;
 
-// Fixed cover blocks shared with the isolated arena, reused as readable hard
-// cover. Lina shelters behind hard cover and is never a simulated health bar.
+// Hard cover rectangles aligned to the painted props in twilight-ruins-warehouse-yard.png:
+// left handcart, center stone wall + tarp shelter, and bottom-right sandbag barricade.
 const COVER: CoverRect[] = [
-  { x: ARENA_W * 0.5 - 90, y: ARENA_H * 0.5 - 60, w: 120, h: 100 }, // shelter cover
-  { x: ARENA_W * 0.5 - 200, y: ARENA_H * 0.5 + 55, w: 80, h: 90 },
-  { x: ARENA_W * 0.5 + 150, y: ARENA_H * 0.5 - 95, w: 90, h: 80 },
+  { x: 238, y: 162, w: 72, h: 52 },  // industrial handcart
+  { x: 332, y: 185, w: 155, h: 78 }, // center stone wall & tarp shelter
+  { x: 538, y: 264, w: 114, h: 46 }, // sandbag barricade
 ];
 
-// Scripted positions for the rescue cast. All are placeholders labelled
-// temporary until campaign art is supplied; none are walk cycles.
-const PLAYER_START = { x: ARENA_W * 0.22, y: ARENA_H * 0.5 };
-const LINA_START = { x: ARENA_W * 0.34, y: ARENA_H * 0.5 }; // behind shelter cover
-const MAI_MARKER = { x: ARENA_W * 0.82, y: ARENA_H * 0.5 }; // Mai's safe marker
-const ISSHIN_POS = { x: ARENA_W * 0.5, y: ARENA_H * 0.22 }; // fixed covering-fire position
-const SWITCH_POS = { x: ARENA_W * 0.62, y: ARENA_H * 0.62 }; // extraction switch
+// Scripted positions aligned to the warehouse yard landmarks.
+const PLAYER_START = { x: 112, y: 236 }; // west service-lane entry
+const LINA_START = { x: 444, y: 222 };   // sheltered under the green tarp behind stone cover
+const MAI_MARKER = { x: 682, y: 170 };   // warm-lit covered safe alcove on top-right
+const ISSHIN_POS = { x: 594, y: 244 };   // behind the sandbag barricade providing covering fire
+const SWITCH_POS = { x: 518, y: 152 };   // glowing gate switch on the concrete pillar
 const LINA_SAFE = { x: MAI_MARKER.x, y: MAI_MARKER.y }; // Lina's destination
 
 type BeatId = 'alley' | 'hold' | 'extraction';
@@ -75,11 +70,15 @@ export class RescueScene extends Phaser.Scene {
   private coverGraphics!: Phaser.GameObjects.Graphics;
   private telegraphGraphics!: Phaser.GameObjects.Graphics;
   private playerSprite!: Phaser.GameObjects.Sprite;
+  private playerShadow!: Phaser.GameObjects.Ellipse;
   private linaSprite!: Phaser.GameObjects.Sprite;
+  private linaShadow!: Phaser.GameObjects.Ellipse;
+  private linaLabel!: Phaser.GameObjects.Text;
   private maiSprite!: Phaser.GameObjects.Sprite;
   private isshinSprite!: Phaser.GameObjects.Sprite;
-  private switchSprite!: Phaser.GameObjects.Rectangle;
+  private switchSprite!: Phaser.GameObjects.Arc;
   private enemySprites = new Map<string, Phaser.GameObjects.Sprite>();
+  private enemyShadows = new Map<string, Phaser.GameObjects.Ellipse>();
   private bulletGraphics = new Map<string, Phaser.GameObjects.Arc>();
   private bulletSeq = 0;
   private hitFlash!: Phaser.GameObjects.Rectangle;
@@ -149,6 +148,14 @@ export class RescueScene extends Phaser.Scene {
       this.load.spritesheet('sprite-k', '/assets/characters/k/k-interaction-sprites-48px.png', {
         frameWidth: 48, frameHeight: 48,
       });
+    }
+    for (const dir of ['down', 'left', 'right', 'up']) {
+      const key = `k-walk-${dir}`;
+      if (!this.textures.exists(key)) {
+        this.load.spritesheet(key, `/assets/characters/k/k-walk-${dir}-48px.png`, {
+          frameWidth: 48, frameHeight: 48,
+        });
+      }
     }
     // Mai interaction sheet
     if (!this.textures.exists('sprite-mai')) {
@@ -241,46 +248,126 @@ export class RescueScene extends Phaser.Scene {
     const onPointerDown = () => this.tryFire();
     this.input.on('pointerdown', onPointerDown);
 
+    document.body.dataset.scene = 'rescue';
+
     // Service lane arena backdrop
     if (this.textures.exists('bg-rescue')) {
       this.add.image(width / 2, height / 2, 'bg-rescue')
         .setDisplaySize(width, height)
         .setDepth(-1)
-        .setAlpha(0.65);
+        .setAlpha(0.88);
     }
 
-    // Cover
-    this.coverGraphics = this.add.graphics();
-    this.coverGraphics.fillStyle(0x4a5568);
-    for (const c of COVER) this.coverGraphics.fillRect(c.x, c.y, c.w, c.h);
+    // Subtle tactical ground outlines aligned to the painted cover props
+    this.coverGraphics = this.add.graphics().setDepth(5);
+    this.coverGraphics.fillStyle(0x0f172a, 0.03);
+    this.coverGraphics.lineStyle(1, 0x94a3b8, 0.14);
+    for (const c of COVER) {
+      this.coverGraphics.fillRect(c.x, c.y, c.w, c.h);
+      this.coverGraphics.strokeRect(c.x, c.y, c.w, c.h);
+    }
 
-    // Player (using interaction sheet sprite)
+    // Player (readable character scale decoupled from collision radius)
     this.player.x = PLAYER_START.x;
     this.player.y = PLAYER_START.y;
+    this.playerShadow = this.add.ellipse(this.player.x, this.player.y + 18, 24, 9, 0x05070a, 0.48)
+      .setDepth(46);
     this.playerSprite = this.add.sprite(
       this.player.x, this.player.y, 'sprite-k', 0,
-    ).setDisplaySize(PLAYER_RADIUS * 2, PLAYER_RADIUS * 2).setDepth(50);
+    ).setDisplaySize(SPRITE_DISPLAY.combatPlayer, SPRITE_DISPLAY.combatPlayer)
+      .setOrigin(0.5, 0.62)
+      .setDepth(50);
 
-    // Lina behind shelter cover (using sprite)
+    for (const dir of ['down', 'left', 'right', 'up']) {
+      const animKey = `k-walk-${dir}`;
+      if (!this.anims.exists(animKey) && this.textures.exists(animKey)) {
+        this.anims.create({
+          key: animKey,
+          frames: this.anims.generateFrameNumbers(animKey, { start: 0, end: 3 }),
+          frameRate: 9,
+          repeat: -1,
+        });
+      }
+    }
+    if (!this.anims.exists('k-idle')) {
+      this.anims.create({
+        key: 'k-idle',
+        frames: [{ key: 'sprite-k', frame: 0 }],
+        frameRate: 1,
+      });
+    }
+
+    // Lina behind shelter cover (single-pose 48px sprite scaled cleanly)
+    this.linaShadow = this.add.ellipse(this.lina.x, this.lina.y + 16, 22, 8, 0x05070a, 0.45)
+      .setDepth(46);
     this.linaSprite = this.add.sprite(
-      this.lina.x, this.lina.y, 'lina-idle',
-    ).setDisplaySize(LINA_RADIUS * 2, LINA_RADIUS * 2).setDepth(49);
+      this.lina.x, this.lina.y, 'lina-shelter',
+    ).setDisplaySize(SPRITE_DISPLAY.rescueLina, SPRITE_DISPLAY.rescueLina)
+      .setOrigin(0.5, 0.62)
+      .setDepth(49);
+    this.linaLabel = this.add.text(this.lina.x, this.lina.y + 22, 'Lina', {
+      fontFamily: 'Segoe UI, Arial, sans-serif',
+      fontSize: '10px',
+      fontStyle: 'bold',
+      color: '#fde68a',
+      backgroundColor: '#0d1117d9',
+      padding: { x: 4, y: 1 },
+    }).setOrigin(0.5, 0).setDepth(55);
 
-    // Mai at her safe marker (using interaction sheet)
+    // Mai waiting in the lit safe alcove
+    this.add.ellipse(MAI_MARKER.x, MAI_MARKER.y + 18, 24, 9, 0x05070a, 0.48).setDepth(46);
     this.maiSprite = this.add.sprite(
       MAI_MARKER.x, MAI_MARKER.y, 'sprite-mai', 0,
-    ).setDisplaySize(MAI_RADIUS * 2, MAI_RADIUS * 2).setDepth(49);
+    ).setDisplaySize(SPRITE_DISPLAY.rescueMai, SPRITE_DISPLAY.rescueMai)
+      .setOrigin(0.5, 0.62)
+      .setDepth(49);
+    this.add.text(MAI_MARKER.x, MAI_MARKER.y + 24, 'Mai · Safe', {
+      fontFamily: 'Segoe UI, Arial, sans-serif',
+      fontSize: '10px',
+      fontStyle: 'bold',
+      color: '#86efac',
+      backgroundColor: '#0d1117d9',
+      padding: { x: 4, y: 1 },
+    }).setOrigin(0.5, 0).setDepth(55);
 
-    // Isshin at fixed covering-fire position (using interaction sheet)
+    // Isshin behind the sandbag barricade providing covering fire
+    this.add.ellipse(ISSHIN_POS.x, ISSHIN_POS.y + 18, 24, 9, 0x05070a, 0.48).setDepth(46);
     this.isshinSprite = this.add.sprite(
       ISSHIN_POS.x, ISSHIN_POS.y, 'sprite-isshin', 0,
-    ).setDisplaySize(ENEMY_RADIUS * 2, ENEMY_RADIUS * 2).setDepth(48);
+    ).setDisplaySize(SPRITE_DISPLAY.rescueIsshin, SPRITE_DISPLAY.rescueIsshin)
+      .setOrigin(0.5, 0.62)
+      .setDepth(48);
+    this.add.text(ISSHIN_POS.x, ISSHIN_POS.y + 24, 'Isshin', {
+      fontFamily: 'Segoe UI, Arial, sans-serif',
+      fontSize: '10px',
+      fontStyle: 'bold',
+      color: '#cbd5e1',
+      backgroundColor: '#0d1117d9',
+      padding: { x: 4, y: 1 },
+    }).setOrigin(0.5, 0).setDepth(55);
 
-    // Extraction switch.
+    // Extraction switch beacon aligned to the glowing switch on the gate pillar
     this.switchSprite = this.add
-      .rectangle(SWITCH_POS.x, SWITCH_POS.y, 30, 30, 0xe9b45c)
-      .setStrokeStyle(2, 0xe9b45c)
+      .circle(SWITCH_POS.x, SWITCH_POS.y, 15, 0xe9b45c, 0.22)
+      .setStrokeStyle(2, 0xfde047, 0.95)
       .setDepth(47);
+    this.tweens.add({
+      targets: this.switchSprite,
+      scale: 1.18,
+      alpha: 0.48,
+      duration: 850,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+    this.add.text(SWITCH_POS.x, SWITCH_POS.y - 20, 'E · Gate switch', {
+      fontFamily: 'Segoe UI, Arial, sans-serif',
+      fontSize: '10px',
+      fontStyle: 'bold',
+      color: '#fde047',
+      backgroundColor: '#0d1117e0',
+      padding: { x: 4, y: 1 },
+    }).setOrigin(0.5, 1).setDepth(55);
 
     // Telegraph overlay.
     this.telegraphGraphics = this.add.graphics();
@@ -649,6 +736,13 @@ export class RescueScene extends Phaser.Scene {
       }
     }
     this.linaSprite.setPosition(this.lina.x, this.lina.y);
+    this.linaShadow.setPosition(this.lina.x, this.lina.y + 16);
+    this.linaLabel.setPosition(this.lina.x, this.lina.y + 22);
+    const linaTex = this.lina.phase === 'behind-cover' ? 'lina-shelter' : 'lina-idle';
+    if (this.linaSprite.texture.key !== linaTex) {
+      this.linaSprite.setTexture(linaTex);
+      this.linaSprite.setDisplaySize(SPRITE_DISPLAY.rescueLina, SPRITE_DISPLAY.rescueLina);
+    }
   }
 
   private grantRescue() {
@@ -851,6 +945,8 @@ export class RescueScene extends Phaser.Scene {
     this.bullets = [];
     this.enemySprites.forEach((s) => s.destroy());
     this.enemySprites.clear();
+    this.enemyShadows.forEach((s) => s.destroy());
+    this.enemyShadows.clear();
     this.bulletGraphics.forEach((g) => g.destroy());
     this.bulletGraphics.clear();
 
@@ -861,7 +957,11 @@ export class RescueScene extends Phaser.Scene {
       x: LINA_START.x, y: LINA_START.y, phase: 'behind-cover',
       moveStartTime: 0, moveDurationMs: 2000,
     };
-    this.linaSprite.setPosition(this.lina.x, this.lina.y);
+    this.linaSprite.setTexture('lina-shelter')
+      .setDisplaySize(SPRITE_DISPLAY.rescueLina, SPRITE_DISPLAY.rescueLina)
+      .setPosition(this.lina.x, this.lina.y);
+    this.linaShadow.setPosition(this.lina.x, this.lina.y + 16);
+    this.linaLabel.setPosition(this.lina.x, this.lina.y + 22);
 
     this.beatIndex = 0;
     this.beatStartTime = this.now(performance.now());
@@ -918,45 +1018,79 @@ export class RescueScene extends Phaser.Scene {
 
   private syncGraphics() {
     this.playerSprite.setPosition(this.player.x, this.player.y);
+    this.playerShadow.setPosition(this.player.x, this.player.y + 18);
+
+    const movingUp = this.keys.W.isDown || this.keys.UP.isDown;
+    const movingDown = this.keys.S.isDown || this.keys.DOWN.isDown;
+    const movingLeft = this.keys.A.isDown || this.keys.LEFT.isDown;
+    const movingRight = this.keys.D.isDown || this.keys.RIGHT.isDown;
+    let targetAnim = 'k-idle';
+    if (movingLeft) targetAnim = 'k-walk-left';
+    else if (movingRight) targetAnim = 'k-walk-right';
+    else if (movingUp) targetAnim = 'k-walk-up';
+    else if (movingDown) targetAnim = 'k-walk-down';
+    if (this.anims.exists(targetAnim) && this.playerSprite.anims.currentAnim?.key !== targetAnim) {
+      this.playerSprite.play(targetAnim);
+    }
+
     // Mai and Isshin are static, but ensure they're positioned
     this.maiSprite.setPosition(MAI_MARKER.x, MAI_MARKER.y);
     this.isshinSprite.setPosition(ISSHIN_POS.x, ISSHIN_POS.y);
     this.switchSprite.setPosition(SWITCH_POS.x, SWITCH_POS.y);
-    if (this.switchHold.active) {
-      this.switchSprite.setFillStyle(0xfde047);
+    if (this.gateOpen) {
+      this.switchSprite.setFillStyle(0x4ade80, 0.35);
+      this.switchSprite.setStrokeStyle(2, 0x86efac, 0.95);
+    } else if (this.switchHold.active) {
+      this.switchSprite.setFillStyle(0xfde047, 0.45);
+      this.switchSprite.setStrokeStyle(2, 0xfef08a, 1);
     } else {
-      this.switchSprite.setFillStyle(0xe9b45c);
+      this.switchSprite.setFillStyle(0xe9b45c, 0.22);
+      this.switchSprite.setStrokeStyle(2, 0xfde047, 0.95);
     }
 
     const liveEnemyIds = new Set<string>();
     for (const e of this.enemies) {
       liveEnemyIds.add(e.id);
       let sprite = this.enemySprites.get(e.id);
+      let shadow = this.enemyShadows.get(e.id);
+      const displaySize = e.kind === 'scout' ? SPRITE_DISPLAY.combatScout : SPRITE_DISPLAY.combatRusher;
       if (!sprite) {
-        // Create sprite based on enemy kind
         const textureKey = e.kind === 'scout' ? 'scout-idle' : 'rusher-idle';
         sprite = this.add.sprite(e.x, e.y, textureKey, 0);
-        sprite.setDisplaySize(e.radius * 2, e.radius * 2);
+        sprite.setDisplaySize(displaySize, displaySize);
         sprite.setDepth(48);
         this.enemySprites.set(e.id, sprite);
       }
+      if (!shadow) {
+        shadow = this.add.ellipse(e.x, e.y + 18, displaySize * 0.56, 10, 0x05070a, 0.45)
+          .setDepth(44);
+        this.enemyShadows.set(e.id, shadow);
+      }
       sprite.setPosition(e.x, e.y);
-      // Update texture based on phase
+      shadow.setPosition(e.x, e.y + 18);
+      const dirFrame = directionFrame4Dir(e.dirX, e.dirY);
       if (e.phase === 'committed') {
-        sprite.setTexture(e.kind === 'scout' ? 'scout-recoil' : 'rusher-charge');
+        sprite.setTexture(e.kind === 'scout' ? 'scout-recoil' : 'rusher-charge', dirFrame);
         sprite.setTint(0xf87171);
       } else if (e.phase === 'telegraph') {
-        sprite.setTexture(e.kind === 'scout' ? 'scout-windup' : 'rusher-windup');
+        sprite.setTexture(e.kind === 'scout' ? 'scout-windup' : 'rusher-windup', dirFrame);
         sprite.clearTint();
       } else {
-        sprite.setTexture(e.kind === 'scout' ? 'scout-idle' : 'rusher-idle');
+        sprite.setTexture(e.kind === 'scout' ? 'scout-idle' : 'rusher-idle', dirFrame);
         sprite.clearTint();
       }
+      sprite.setDisplaySize(displaySize, displaySize);
     }
     for (const [id, sprite] of this.enemySprites) {
       if (!liveEnemyIds.has(id)) {
         sprite.destroy();
         this.enemySprites.delete(id);
+      }
+    }
+    for (const [id, shadow] of this.enemyShadows) {
+      if (!liveEnemyIds.has(id)) {
+        shadow.destroy();
+        this.enemyShadows.delete(id);
       }
     }
 

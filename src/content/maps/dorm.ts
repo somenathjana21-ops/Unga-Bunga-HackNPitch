@@ -6,22 +6,22 @@ export const dormMap: GameMap = {
   name: 'Dorm room',
   grid: [
     '################',
+    '################',
     '#..............#',
     '#..............#',
     '#..............#',
     '#..............#',
     '#..............#',
-    '#..............#',
-    'D..............#',
+    '#............D.#',
     '################',
   ],
-  spawn: { x: 2, y: 6 },
+  spawn: { x: 11, y: 6 },
   objective: 'Talk to Kingsley, inspect the television, then go to bed.',
   npcs: [
     {
       id: 'kingsley-talk',
       characterId: 'kingsley',
-      position: { x: 7, y: 4 },
+      position: { x: 8, y: 3 },
       dialogueId: 'dorm-kingsley-talk',
       excludesFlag: 'dorm-kingsley-talked',
     },
@@ -29,14 +29,14 @@ export const dormMap: GameMap = {
   interactables: [
     {
       id: 'tv-1',
-      position: { x: 11, y: 2 },
+      position: { x: 7, y: 7 },
       dialogueId: 'dorm-tv-broadcast-1',
       prompt: 'Watch TV',
       excludesFlag: 'dorm-tv-seen-1',
     },
     {
       id: 'tv-2',
-      position: { x: 11, y: 2 },
+      position: { x: 7, y: 7 },
       dialogueId: 'dorm-tv-broadcast-2',
       prompt: 'Watch TV',
       requiresFlag: 'dorm-tv-seen-1',
@@ -44,7 +44,7 @@ export const dormMap: GameMap = {
     },
     {
       id: 'food',
-      position: { x: 13, y: 5 },
+      position: { x: 1, y: 5 },
       dialogueId: 'dorm-food-inspect',
       prompt: 'Check the fridge',
       requiresFlag: 'dorm-kingsley-talked',
@@ -52,7 +52,7 @@ export const dormMap: GameMap = {
     },
     {
       id: 'bed',
-      position: { x: 3, y: 2 },
+      position: { x: 4, y: 3 },
       dialogueId: 'breach-wake',
       prompt: 'Go to sleep',
       requiresFlag: 'dorm-tv-seen-2',
@@ -62,7 +62,14 @@ export const dormMap: GameMap = {
   triggers: [
     {
       id: 'breach-door-trigger',
-      position: { x: 7, y: 7 },
+      position: { x: 13, y: 7 },
+      dialogueId: 'breach-door',
+      requiresFlag: 'breach-woke',
+      excludesFlag: 'breach-door-examined',
+    },
+    {
+      id: 'breach-door-approach-trigger',
+      position: { x: 13, y: 6 },
       dialogueId: 'breach-door',
       requiresFlag: 'breach-woke',
       excludesFlag: 'breach-door-examined',
@@ -76,14 +83,14 @@ export const dormMap: GameMap = {
     },
     {
       id: 'breach-attack-trigger',
-      position: { x: 7, y: 7 },
+      position: { x: 13, y: 7 },
       dialogueId: 'breach-attack',
       requiresFlag: 'breach-door-examined',
       excludesFlag: 'breach-survived',
     },
     {
-      id: 'breach-attack-exit-trigger',
-      position: { x: 0, y: 7 },
+      id: 'breach-attack-approach-trigger',
+      position: { x: 13, y: 6 },
       dialogueId: 'breach-attack',
       requiresFlag: 'breach-door-examined',
       excludesFlag: 'breach-survived',
@@ -91,9 +98,10 @@ export const dormMap: GameMap = {
   ],
   doors: [
     {
-      position: { x: 0, y: 7 },
+      position: { x: 13, y: 7 },
       targetMap: 'library',
-      targetSpawn: { x: 14, y: 4 },
+      targetSpawn: { x: 14, y: 5 },
+      label: 'Hallway',
       excludesFlag: 'breach-woke',
       objective: 'Find Hachimi outside the library.',
     },

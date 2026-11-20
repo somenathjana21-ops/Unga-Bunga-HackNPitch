@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { canEnter, previewRoom, TILE_SIZE } from '../maps/preview-room';
+import { SPRITE_DISPLAY } from '../sprite-metrics';
 
 export class PreviewScene extends Phaser.Scene {
   private player!: Phaser.GameObjects.Sprite;
@@ -33,7 +34,8 @@ export class PreviewScene extends Phaser.Scene {
     }));
     this.add.rectangle(13 * TILE_SIZE + 24, 5 * TILE_SIZE + 24, 34, 34, 0xe9b45c, 0.2)
       .setStrokeStyle(2, 0xe9b45c);
-    this.player = this.add.sprite(this.tile.x * TILE_SIZE + 24, this.tile.y * TILE_SIZE + 24, 'k', 0);
+    this.player = this.add.sprite(this.tile.x * TILE_SIZE + 24, this.tile.y * TILE_SIZE + 24, 'k', 0)
+      .setDisplaySize(SPRITE_DISPLAY.previewCharacter, SPRITE_DISPLAY.previewCharacter);
     // Existing six frames are interaction poses, not a walk cycle. Keep frame 0 until art is supplied.
     this.keys = this.input.keyboard!.addKeys('W,A,S,D,UP,LEFT,DOWN,RIGHT,E,ESC') as typeof this.keys;
     this.input.keyboard!.addCapture(['UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE']);

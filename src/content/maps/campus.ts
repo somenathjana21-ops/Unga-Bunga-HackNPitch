@@ -6,10 +6,10 @@ export const campusMap: GameMap = {
   name: 'Campus approach',
   grid: [
     '################',
-    '#..............#',
-    '#..............#',
-    '#..............#',
-    '#..............D',
+    '################',
+    '#############D##',
+    '###########...##',
+    '#...............',
     '#..............#',
     '#..............#',
     '#..............#',
@@ -21,14 +21,15 @@ export const campusMap: GameMap = {
   interactables: [
     {
       id: 'wallet',
-      position: { x: 4, y: 5 },
+      position: { x: 4, y: 4 },
       dialogueId: 'campus-wallet',
       prompt: 'Pick up wallet',
+      spriteId: 'pixel-art-leather-wallet-icon',
       excludesFlag: 'campus-wallet-seen',
     },
     {
       id: 'bench',
-      position: { x: 2, y: 3 },
+      position: { x: 6, y: 3 },
       dialogueId: 'campus-bench',
       prompt: 'Sit on bench',
       excludesFlag: 'campus-bench-seen',
@@ -50,9 +51,10 @@ export const campusMap: GameMap = {
   ],
   doors: [
     {
-      position: { x: 15, y: 4 },
+      position: { x: 13, y: 2 },
       targetMap: 'library',
-      targetSpawn: { x: 2, y: 6 },
+      targetSpawn: { x: 2, y: 5 },
+      label: 'Library',
       objective: 'Find Hachimi outside the library.',
     },
   ],

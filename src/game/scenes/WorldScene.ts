@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { getMap, canWalkTo, TILE_SIZE } from '../../content/maps';
-import type { GameMap } from '../../content/maps/types';
+import type { GameMap, MapPosition } from '../../content/maps/types';
 import { characters } from '../../content/characters';
 import {
   createStoryProgress, completeSequence, hasFlag, setFlag,
@@ -14,35 +14,42 @@ import { saveRun } from '../../services/local-save';
 import type { RunState } from '../state';
 import type { Difficulty } from '../rules';
 import type { Milestone } from '../../content/campaign';
+import { SPRITE_DISPLAY } from '../sprite-metrics';
 
 /** Display name for each character ID, used by the on-map NPC labels. */
 const characterNames: Record<string, string> = Object.fromEntries(
   characters.map((character) => [character.id, character.name]),
 );
 
-/** Sprite key for each character's 48px interaction sheet. */
-const characterSprites: Record<string, string> = {
-  k: 'k',
-  kingsley: 'kingsley',
-  hachimi: 'hachimi',
-  isshin: 'isshin',
-  mai: 'mai',
-  nero: 'nero',
-  sayu: 'sayu',
-  civilian: 'k',
-  'man-1': 'man-1',
-  'man-2': 'man-2',
+/** Sprite texture key for each character on the world map. */
+const characterSpriteKeys: Record<string, string> = {
+  k: 'sprite-k',
+  kingsley: 'sprite-kingsley',
+  hachimi: 'sprite-hachimi',
+  isshin: 'sprite-isshin',
+  mai: 'sprite-mai',
+  nero: 'sprite-nero',
+  sayu: 'sprite-sayu',
+  civilian: 'sprite-civilian',
+  'man-1': 'sprite-man-1',
+  'man-2': 'sprite-man-2',
 };
+
+const CHAR_ORIGIN_Y = 0.74;
+const CHAR_FOOT_OFFSET_Y = 38;
 
 export class WorldScene extends Phaser.Scene {
   private map!: GameMap;
   private progress!: StoryProgress;
   private player!: Phaser.GameObjects.Sprite;
+  private playerShadow?: Phaser.GameObjects.Ellipse;
   private tile = { x: 2, y: 6 };
   private moving = false;
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private npcSprites: Map<string, Phaser.GameObjects.Sprite> = new Map();
-  private interactableMarkers: Map<string, Phaser.GameObjects.Rectangle> = new Map();
+  private npcShadows: Map<string, Phaser.GameObjects.Ellipse> = new Map();
+  private interactableObjects: Phaser.GameObjects.GameObject[] = [];
+  private doorObjects: Phaser.GameObjects.GameObject[] = [];
   private npcLabels: Map<string, Phaser.GameObjects.Text> = new Map();
   private npcMarkers: Map<string, Phaser.GameObjects.Text> = new Map();
   private objectiveText!: Phaser.GameObjects.Text;
@@ -66,6 +73,14 @@ export class WorldScene extends Phaser.Scene {
           frameWidth: 48, frameHeight: 48,
         });
       }
+    }
+    // Camp civilian single-frame idle sprite for settlement ration line
+    if (!this.textures.exists('sprite-civilian')) {
+      this.load.image('sprite-civilian', '/assets/characters/camp-civilian/camp-civilian-a-idle.png');
+    }
+    // World prop icons rendered on interactable tiles not painted into the backdrop
+    if (!this.textures.exists('prop-pixel-art-leather-wallet-icon')) {
+      this.load.image('prop-pixel-art-leather-wallet-icon', '/assets/backgrounds/pixel-art-leather-wallet-icon.png');
     }
     // K's four-direction walk cycles (4 frames each)
     const walkDirs = ['down', 'left', 'right', 'up'];
@@ -126,18 +141,34 @@ export class WorldScene extends Phaser.Scene {
       }
     });
 
-    this.loadMap('campus');
+    const requestedMap = new URLSearchParams(window.location.search).get('map');
+    const validMaps = new Set(['campus', 'library', 'dorm', 'clinic', 'settlement']);
+    const startMap = requestedMap && validMaps.has(requestedMap) ? requestedMap : 'campus';
+    this.loadMap(startMap);
   }
 
-  private loadMap(mapId: string) {
+  private loadMap(mapId: string, spawnOverride?: MapPosition) {
     // Clean up previous map objects
-    this.npcSprites.forEach(s => s.destroy());
+    this.npcSprites.forEach(s => {
+      this.tweens.killTweensOf(s);
+      s.destroy();
+    });
     this.npcSprites.clear();
-    this.interactableMarkers.forEach(m => m.destroy());
-    this.interactableMarkers.clear();
+    this.npcShadows.forEach(s => s.destroy());
+    this.npcShadows.clear();
+    this.clearInteractableMarkers();
+    this.clearDoorMarkers();
     this.clearNpcDecorations();
     if (this.floorGraphics) this.floorGraphics.destroy();
-    if (this.player) this.player.destroy();
+    if (this.player) {
+      this.tweens.killTweensOf(this.player);
+      this.player.destroy();
+    }
+    if (this.playerShadow) {
+      this.tweens.killTweensOf(this.playerShadow);
+      this.playerShadow.destroy();
+      this.playerShadow = undefined;
+    }
     if (this.objectiveText) this.objectiveText.destroy();
     if (this.promptText) this.promptText.destroy();
     if (this.locationText) this.locationText.destroy();
@@ -159,13 +190,19 @@ export class WorldScene extends Phaser.Scene {
     }
     this.visitedMaps.add(mapId);
     enterMap(this.progress, mapId, nextObjective);
-    this.tile = { ...this.map.spawn };
+    this.tile = spawnOverride ? { ...spawnOverride } : { ...this.map.spawn };
+    this.moving = false;
+
+    document.body.dataset.scene = 'world';
+    document.body.dataset.map = mapId;
 
     this.drawMap();
+    this.spawnDoorMarkers();
     this.spawnNpcs();
     this.spawnInteractableMarkers();
     this.spawnPlayer();
     this.createObjectiveUI();
+    this.updatePrompt();
 
     // Auto-trigger clinic wake sequence
     if (mapId === 'clinic' && !hasFlag(this.progress, 'clinic-woke')) {
@@ -190,69 +227,154 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private drawMap() {
-    // Full-map backdrop behind the tile grid (walls and doors draw on top).
-    const bgId = this.map.backgroundImageId;
-    const hasBackground = bgId && this.textures.exists(`bg-${bgId}`);
-    if (hasBackground) {
+    // Full-map backdrop behind the tile grid.
+    const bgId = this.map.id === 'dorm' && hasFlag(this.progress, 'breach-woke')
+      ? 'moonlit-dorm-void-doorway'
+      : this.map.backgroundImageId;
+    const hasBackground = Boolean(bgId && this.textures.exists(`bg-${bgId}`));
+    if (hasBackground && bgId) {
       this.backgroundSprite = this.add.image(0, 0, `bg-${bgId}`).setOrigin(0, 0);
       this.backgroundSprite
         .setDisplaySize(this.scale.width, this.scale.height)
         .setDepth(-1);
     }
 
-    this.floorGraphics = this.add.graphics();
-    this.map.grid.forEach((row, y) => {
-      [...row].forEach((cell, x) => {
-        const px = x * TILE_SIZE;
-        const py = y * TILE_SIZE;
-        if (cell === '#') {
-          // Wall: solid obstacle. When a backdrop is set, darken it subtly so
-          // the player can still read the map art behind the blocked tiles.
-          this.floorGraphics.fillStyle(hasBackground ? 0x000000 : 0x39434c, hasBackground ? 0.5 : 1);
-          this.floorGraphics.fillRect(px, py, TILE_SIZE - 1, TILE_SIZE - 1);
-          this.floorGraphics.fillStyle(0x57616b);
-          this.floorGraphics.fillRect(px + 3, py + 3, TILE_SIZE - 7, 3);
-        } else if (cell === 'D') {
-          // Door tile
-          this.floorGraphics.fillStyle(0x1e262e);
-          this.floorGraphics.fillRect(px, py, TILE_SIZE - 1, TILE_SIZE - 1);
-          this.floorGraphics.fillStyle(0xe9b45c, 0.3);
-          this.floorGraphics.fillRect(px + 4, py + 4, TILE_SIZE - 9, TILE_SIZE - 9);
-          this.floorGraphics.lineStyle(2, 0xe9b45c);
-          this.floorGraphics.strokeRect(px + 4, py + 4, TILE_SIZE - 9, TILE_SIZE - 9);
-        } else {
-          // Floor: let the backdrop show through when one is set; otherwise
-          // draw the dark checkerboard fallback so the grid stays readable.
-          if (!hasBackground) {
+    this.floorGraphics = this.add.graphics().setDepth(0);
+    if (!hasBackground) {
+      this.map.grid.forEach((row, y) => {
+        [...row].forEach((cell, x) => {
+          const px = x * TILE_SIZE;
+          const py = y * TILE_SIZE;
+          if (cell === '#') {
+            this.floorGraphics.fillStyle(0x39434c, 1);
+            this.floorGraphics.fillRect(px, py, TILE_SIZE - 1, TILE_SIZE - 1);
+            this.floorGraphics.fillStyle(0x57616b);
+            this.floorGraphics.fillRect(px + 3, py + 3, TILE_SIZE - 7, 3);
+          } else {
             this.floorGraphics.fillStyle((x + y) % 2 ? 0x1e262e : 0x222c34);
             this.floorGraphics.fillRect(px, py, TILE_SIZE - 1, TILE_SIZE - 1);
           }
-        }
+        });
       });
-    });
+    }
+  }
+
+  private clearDoorMarkers() {
+    for (const obj of this.doorObjects) {
+      this.tweens.killTweensOf(obj);
+      obj.destroy();
+    }
+    this.doorObjects = [];
+  }
+
+  private spawnDoorMarkers() {
+    this.clearDoorMarkers();
+
+    // Render indicators ONLY for currently unlocked doors so locked exits never
+    // confuse the player.
+    for (const door of this.map.doors) {
+      if (door.excludesFlag && hasFlag(this.progress, door.excludesFlag)) continue;
+      if (door.requiresFlag && !hasFlag(this.progress, door.requiresFlag)) continue;
+
+      const cx = door.position.x * TILE_SIZE + TILE_SIZE / 2;
+      const cy = door.position.y * TILE_SIZE + TILE_SIZE / 2;
+
+      const glow = this.add.rectangle(cx, cy, TILE_SIZE - 10, TILE_SIZE - 10, 0xe9b45c, 0.2)
+        .setStrokeStyle(2, 0xe9b45c, 0.9)
+        .setDepth(4);
+      this.tweens.add({
+        targets: glow,
+        alpha: 0.45,
+        duration: 900,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+      this.doorObjects.push(glow);
+
+      if (door.label) {
+        const labelY = door.position.y <= 2
+          ? cy + TILE_SIZE / 2 + 2
+          : cy - TILE_SIZE / 2 - 2;
+        const originY = door.position.y <= 2 ? 0 : 1;
+        const label = this.add.text(cx, labelY, door.label, {
+          fontFamily: 'Segoe UI, Arial, sans-serif',
+          fontSize: '10px',
+          fontStyle: 'bold',
+          color: '#f7d694',
+          backgroundColor: '#0d1117e6',
+          padding: { x: 5, y: 2 },
+        }).setOrigin(0.5, originY).setDepth(30);
+        this.doorObjects.push(label);
+      }
+    }
+
+    // Special breach doorway beacon in the dorm once K wakes up ("Check the door.")
+    if (
+      this.map.id === 'dorm' &&
+      hasFlag(this.progress, 'breach-woke') &&
+      !hasFlag(this.progress, 'breach-survived')
+    ) {
+      const cx = 13 * TILE_SIZE + TILE_SIZE / 2;
+      const cy = 7 * TILE_SIZE + TILE_SIZE / 2;
+      const pulse = this.add.rectangle(cx, cy, TILE_SIZE - 8, TILE_SIZE - 8, 0xef4444, 0.22)
+        .setStrokeStyle(2, 0xf87171, 0.95)
+        .setDepth(4);
+      this.tweens.add({
+        targets: pulse,
+        alpha: 0.55,
+        duration: 650,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
+      const tag = this.add.text(cx, cy - TILE_SIZE / 2 - 4, 'Check door', {
+        fontFamily: 'Segoe UI, Arial, sans-serif',
+        fontSize: '10px',
+        fontStyle: 'bold',
+        color: '#fca5a5',
+        backgroundColor: '#0d1117e6',
+        padding: { x: 5, y: 2 },
+      }).setOrigin(0.5, 1).setDepth(30);
+      this.doorObjects.push(pulse, tag);
+    }
   }
 
   private spawnNpcs() {
     // Clean up old NPC sprites and their labels/markers
-    this.npcSprites.forEach(s => s.destroy());
+    this.npcSprites.forEach(s => {
+      this.tweens.killTweensOf(s);
+      s.destroy();
+    });
     this.npcSprites.clear();
+    this.npcShadows.forEach(s => s.destroy());
+    this.npcShadows.clear();
     this.clearNpcDecorations();
 
     for (const npc of this.map.npcs) {
       if (npc.excludesFlag && hasFlag(this.progress, npc.excludesFlag)) continue;
       if (npc.requiresFlag && !hasFlag(this.progress, npc.requiresFlag)) continue;
 
-      const spriteKey = characterSprites[npc.characterId] ? `sprite-${characterSprites[npc.characterId]}` : 'sprite-k';
-      const centerX = npc.position.x * TILE_SIZE + 24;
-      const topY = npc.position.y * TILE_SIZE;
+      const spriteKey = characterSpriteKeys[npc.characterId] ?? 'sprite-k';
+      const centerX = npc.position.x * TILE_SIZE + TILE_SIZE / 2;
+      const footY = npc.position.y * TILE_SIZE + CHAR_FOOT_OFFSET_Y;
       const name = characterNames[npc.characterId] ?? npc.characterId;
 
-      const sprite = this.add.sprite(centerX, topY + 24, spriteKey, 0).setDepth(10);
-      // Pulse the quest NPC so it is unmistakable on a dark, empty map.
+      // Ground shadow beneath feet
+      const shadow = this.add.ellipse(centerX, footY + 12, 26, 9, 0x05070a, 0.45)
+        .setDepth(8);
+      this.npcShadows.set(npc.id, shadow);
+
+      const sprite = this.add.sprite(centerX, footY, spriteKey, 0)
+        .setOrigin(0.5, CHAR_ORIGIN_Y)
+        .setScale(SPRITE_DISPLAY.worldCharacterScale)
+        .setDepth(10 + footY * 0.01);
+
+      // Subtle breathing pulse around the scaled world size so quest NPCs stay clear.
       this.tweens.add({
         targets: sprite,
-        scaleX: 1.06,
-        scaleY: 1.06,
+        scaleX: SPRITE_DISPLAY.worldNpcPulseScale,
+        scaleY: SPRITE_DISPLAY.worldNpcPulseScale,
         duration: 900,
         yoyo: true,
         repeat: -1,
@@ -260,29 +382,31 @@ export class WorldScene extends Phaser.Scene {
       });
       this.npcSprites.set(npc.id, sprite);
 
-      // Name plate under the character so quest NPCs are identifiable at a glance.
-      const label = this.add.text(centerX, topY + TILE_SIZE - 2, name, {
+      // Name plate beneath the character's feet
+      const label = this.add.text(centerX, footY + 16, name, {
         fontFamily: 'Segoe UI, Arial, sans-serif',
         fontSize: '10px',
+        fontStyle: 'bold',
         color: '#e3b16b',
-        backgroundColor: '#0d1117d9',
+        backgroundColor: '#0d1117e0',
         padding: { x: 4, y: 1 },
-      }).setOrigin(0.5, 1).setDepth(20);
+      }).setOrigin(0.5, 0).setDepth(35);
       this.npcLabels.set(npc.id, label);
 
-      // "!" prompt above talkable NPCs (all visible NPCs here have dialogue).
-      const marker = this.add.text(centerX, topY + 2, '!', {
+      // "!" prompt cleanly above the character's head
+      const headTopY = footY - SPRITE_DISPLAY.worldCharacter * CHAR_ORIGIN_Y - 12;
+      const marker = this.add.text(centerX, headTopY, '!', {
         fontFamily: 'Segoe UI, Arial, sans-serif',
-        fontSize: '14px',
+        fontSize: '15px',
         fontStyle: 'bold',
         color: '#edbb70',
         stroke: '#0d1117',
         strokeThickness: 3,
-      }).setOrigin(0.5, 0).setDepth(20);
+      }).setOrigin(0.5, 0.5).setDepth(35);
       this.npcMarkers.set(npc.id, marker);
       this.tweens.add({
         targets: marker,
-        y: topY - 2,
+        y: headTopY - 5,
         duration: 700,
         yoyo: true,
         repeat: -1,
@@ -301,30 +425,73 @@ export class WorldScene extends Phaser.Scene {
     this.npcMarkers.clear();
   }
 
+  private clearInteractableMarkers() {
+    for (const obj of this.interactableObjects) {
+      this.tweens.killTweensOf(obj);
+      obj.destroy();
+    }
+    this.interactableObjects = [];
+  }
+
   private spawnInteractableMarkers() {
-    // Clean up old markers
-    this.interactableMarkers.forEach(m => m.destroy());
-    this.interactableMarkers.clear();
+    this.clearInteractableMarkers();
 
     for (const item of this.map.interactables) {
       if (item.excludesFlag && hasFlag(this.progress, item.excludesFlag)) continue;
       if (item.requiresFlag && !hasFlag(this.progress, item.requiresFlag)) continue;
 
-      const marker = this.add.rectangle(
-        item.position.x * TILE_SIZE + 24,
-        item.position.y * TILE_SIZE + 24,
-        20, 20, 0xe9b45c, 0.4,
-      ).setStrokeStyle(1, 0xe9b45c).setDepth(5);
-      this.interactableMarkers.set(item.id, marker);
+      const cx = item.position.x * TILE_SIZE + TILE_SIZE / 2;
+      const cy = item.position.y * TILE_SIZE + TILE_SIZE / 2;
+
+      const propKey = item.spriteId ? `prop-${item.spriteId}` : null;
+      if (propKey && this.textures.exists(propKey)) {
+        const ring = this.add.circle(cx, cy + 4, 14, 0xe9b45c, 0.18)
+          .setStrokeStyle(1.5, 0xe9b45c, 0.85)
+          .setDepth(4);
+        this.tweens.add({
+          targets: ring,
+          scale: 1.18,
+          alpha: 0.45,
+          duration: 950,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+        const prop = this.add.image(cx, cy, propKey)
+          .setDisplaySize(28, 28)
+          .setDepth(6);
+        this.interactableObjects.push(ring, prop);
+      } else {
+        const ring = this.add.circle(cx, cy, 11, 0xe9b45c, 0.24)
+          .setStrokeStyle(2, 0xf7d694, 0.9)
+          .setDepth(5);
+        const dot = this.add.circle(cx, cy, 3.5, 0xfde047, 0.95)
+          .setDepth(6);
+        this.tweens.add({
+          targets: ring,
+          scale: 1.24,
+          alpha: 0.48,
+          duration: 900,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut',
+        });
+        this.interactableObjects.push(ring, dot);
+      }
     }
   }
 
   private spawnPlayer() {
-    this.player = this.add.sprite(
-      this.tile.x * TILE_SIZE + 24,
-      this.tile.y * TILE_SIZE + 24,
-      'sprite-k', 0,
-    ).setDepth(10);
+    const cx = this.tile.x * TILE_SIZE + TILE_SIZE / 2;
+    const footY = this.tile.y * TILE_SIZE + CHAR_FOOT_OFFSET_Y;
+
+    this.playerShadow = this.add.ellipse(cx, footY + 12, 26, 9, 0x05070a, 0.48)
+      .setDepth(8);
+
+    this.player = this.add.sprite(cx, footY, 'sprite-k', 0)
+      .setOrigin(0.5, CHAR_ORIGIN_Y)
+      .setScale(SPRITE_DISPLAY.worldCharacterScale)
+      .setDepth(10 + footY * 0.01);
 
     // Create walk animations for K (if not already created)
     const walkDirs = ['down', 'left', 'right', 'up'];
@@ -339,7 +506,7 @@ export class WorldScene extends Phaser.Scene {
         });
       }
     }
-    // Idle animation (use first frame of down walk or interaction sheet)
+    // Idle animation (use first frame of interaction sheet)
     if (!this.anims.exists('k-idle')) {
       this.anims.create({
         key: 'k-idle',
@@ -354,7 +521,7 @@ export class WorldScene extends Phaser.Scene {
       fontFamily: 'Segoe UI, Arial, sans-serif',
       fontSize: '14px',
       color: '#e3b16b',
-      backgroundColor: '#0d1117',
+      backgroundColor: '#0d1117e6',
       padding: { x: 8, y: 4 },
     }).setScrollFactor(0).setDepth(100);
 
@@ -362,17 +529,18 @@ export class WorldScene extends Phaser.Scene {
     this.locationText = this.add.text(12, 42, this.map.name, {
       fontFamily: 'Segoe UI, Arial, sans-serif',
       fontSize: '12px',
-      color: '#8892a0',
-      backgroundColor: '#0d1117',
+      color: '#b4bcc8',
+      backgroundColor: '#0d1117e0',
       padding: { x: 8, y: 3 },
     }).setScrollFactor(0).setDepth(100);
 
-    this.promptText = this.add.text(this.scale.width / 2, this.scale.height - 24, '', {
+    this.promptText = this.add.text(this.scale.width / 2, this.scale.height - 20, '', {
       fontFamily: 'Segoe UI, Arial, sans-serif',
       fontSize: '13px',
-      color: '#c4c9d0',
-      backgroundColor: '#0d1117',
-      padding: { x: 8, y: 4 },
+      fontStyle: 'bold',
+      color: '#f7d694',
+      backgroundColor: '#0d1117e6',
+      padding: { x: 10, y: 5 },
     }).setOrigin(0.5, 1).setScrollFactor(0).setDepth(100);
   }
 
@@ -408,11 +576,26 @@ export class WorldScene extends Phaser.Scene {
     // Play walk animation
     this.player.play(walkAnim);
 
+    const targetX = this.tile.x * TILE_SIZE + TILE_SIZE / 2;
+    const targetFootY = this.tile.y * TILE_SIZE + CHAR_FOOT_OFFSET_Y;
+
+    if (this.playerShadow) {
+      this.tweens.add({
+        targets: this.playerShadow,
+        x: targetX,
+        y: targetFootY + 12,
+        duration: 170,
+      });
+    }
+
     this.tweens.add({
       targets: this.player,
-      x: this.tile.x * TILE_SIZE + 24,
-      y: this.tile.y * TILE_SIZE + 24,
+      x: targetX,
+      y: targetFootY,
       duration: 170,
+      onUpdate: () => {
+        this.player.setDepth(10 + this.player.y * 0.01);
+      },
       onComplete: () => {
         this.moving = false;
         // Return to idle
@@ -443,7 +626,7 @@ export class WorldScene extends Phaser.Scene {
         this.startRescueMission();
         return;
       }
-      this.loadMap(door.targetMap);
+      this.loadMap(door.targetMap, door.targetSpawn);
       return;
     }
   }
@@ -473,7 +656,7 @@ export class WorldScene extends Phaser.Scene {
       if (item.requiresFlag && !hasFlag(this.progress, item.requiresFlag)) continue;
       const dist = Math.abs(this.tile.x - item.position.x) + Math.abs(this.tile.y - item.position.y);
       if (dist <= 1) {
-        this.promptText.setText(`E — ${item.prompt}`);
+        this.promptText.setText(`E — ${item.prompt}`).setVisible(true);
         return;
       }
     }
@@ -484,12 +667,13 @@ export class WorldScene extends Phaser.Scene {
       if (npc.requiresFlag && !hasFlag(this.progress, npc.requiresFlag)) continue;
       const dist = Math.abs(this.tile.x - npc.position.x) + Math.abs(this.tile.y - npc.position.y);
       if (dist <= 1) {
-        this.promptText.setText('E — Talk');
+        const name = characterNames[npc.characterId] ?? 'Talk';
+        this.promptText.setText(`E — Talk to ${name}`).setVisible(true);
         return;
       }
     }
 
-    this.promptText.setText('');
+    this.promptText.setText('').setVisible(false);
   }
 
   private tryInteract() {
@@ -539,6 +723,7 @@ export class WorldScene extends Phaser.Scene {
       this.objectiveText.setText(`Objective: ${this.progress.objective}`);
       if (this.textures.exists('bg-moonlit-dorm-void-doorway')) {
         this.backgroundSprite?.setTexture('bg-moonlit-dorm-void-doorway');
+        this.backgroundSprite?.setDisplaySize(this.scale.width, this.scale.height);
       }
     } else if (completionFlag === 'breach-door-examined') {
       // Auto-trigger the breach attack immediately after examining the door
@@ -630,7 +815,8 @@ export class WorldScene extends Phaser.Scene {
       });
     }
 
-    // Refresh NPCs and markers to reflect new state
+    // Refresh doors, NPCs, and markers to reflect new state
+    this.spawnDoorMarkers();
     this.spawnNpcs();
     this.spawnInteractableMarkers();
     this.updatePrompt();

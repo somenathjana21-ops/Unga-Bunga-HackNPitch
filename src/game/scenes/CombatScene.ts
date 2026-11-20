@@ -9,6 +9,7 @@ import { DamageSystem } from '../combat/damage';
 import { Player } from '../combat/player';
 import { makeEnemy, updateEnemy } from '../combat/enemy';
 import { updateBullet } from '../combat/bullet';
+import { SPRITE_DISPLAY, directionFrame4Dir } from '../sprite-metrics';
 
 // Dev tuning for the isolated arena. Not part of the shared combatTuning contract.
 const FIRE_COOLDOWN_MS = 400;
@@ -45,7 +46,9 @@ export class CombatScene extends Phaser.Scene {
 
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private playerSprite!: Phaser.GameObjects.Sprite;
+  private playerShadow!: Phaser.GameObjects.Ellipse;
   private enemySprites = new Map<string, Phaser.GameObjects.Sprite>();
+  private enemyShadows = new Map<string, Phaser.GameObjects.Ellipse>();
   private bulletGraphics = new Map<string, Phaser.GameObjects.Arc>();
   private coverGraphics!: Phaser.GameObjects.Graphics;
   private telegraphGraphics!: Phaser.GameObjects.Graphics;
@@ -70,6 +73,14 @@ export class CombatScene extends Phaser.Scene {
       this.load.spritesheet('sprite-k', '/assets/characters/k/k-interaction-sprites-48px.png', {
         frameWidth: 48, frameHeight: 48,
       });
+    }
+    for (const dir of ['down', 'left', 'right', 'up']) {
+      const key = `k-walk-${dir}`;
+      if (!this.textures.exists(key)) {
+        this.load.spritesheet(key, `/assets/characters/k/k-walk-${dir}-48px.png`, {
+          frameWidth: 48, frameHeight: 48,
+        });
+      }
     }
     // Scout sprites (4 directions each, 4 frames)
     const scoutStates = ['idle', 'windup', 'recoil', 'disabled'];
@@ -129,14 +140,39 @@ export class CombatScene extends Phaser.Scene {
     this.coverGraphics.fillStyle(0x4a5568);
     for (const c of this.cover) this.coverGraphics.fillRect(c.x, c.y, c.w, c.h);
 
-    // Player (using interaction sheet sprite)
+    document.body.dataset.scene = 'combat';
+
+    // Player (decoupled readable visual size with fair collision hitbox)
     this.player.x = width * 0.22;
     this.player.y = height * 0.5;
+    this.playerShadow = this.add.ellipse(this.player.x, this.player.y + 18, 24, 9, 0x05070a, 0.48)
+      .setDepth(46);
     this.playerSprite = this.add.sprite(
       this.player.x,
       this.player.y,
       'sprite-k', 0,
-    ).setDisplaySize(PLAYER_RADIUS * 2, PLAYER_RADIUS * 2).setDepth(50);
+    ).setDisplaySize(SPRITE_DISPLAY.combatPlayer, SPRITE_DISPLAY.combatPlayer)
+      .setOrigin(0.5, 0.62)
+      .setDepth(50);
+
+    for (const dir of ['down', 'left', 'right', 'up']) {
+      const animKey = `k-walk-${dir}`;
+      if (!this.anims.exists(animKey) && this.textures.exists(animKey)) {
+        this.anims.create({
+          key: animKey,
+          frames: this.anims.generateFrameNumbers(animKey, { start: 0, end: 3 }),
+          frameRate: 9,
+          repeat: -1,
+        });
+      }
+    }
+    if (!this.anims.exists('k-idle')) {
+      this.anims.create({
+        key: 'k-idle',
+        frames: [{ key: 'sprite-k', frame: 0 }],
+        frameRate: 1,
+      });
+    }
 
     // Telegraph overlay (warning lines).
     this.telegraphGraphics = this.add.graphics();
@@ -509,6 +545,8 @@ export class CombatScene extends Phaser.Scene {
     this.bullets = [];
     this.enemySprites.forEach((s) => s.destroy());
     this.enemySprites.clear();
+    this.enemyShadows.forEach((s) => s.destroy());
+    this.enemyShadows.clear();
     this.bulletGraphics.forEach((g) => g.destroy());
     this.bulletGraphics.clear();
 
@@ -548,36 +586,65 @@ export class CombatScene extends Phaser.Scene {
 
   private syncGraphics() {
     this.playerSprite.setPosition(this.player.x, this.player.y);
+    this.playerShadow.setPosition(this.player.x, this.player.y + 18);
+
+    const movingUp = this.keys.W.isDown || this.keys.UP.isDown;
+    const movingDown = this.keys.S.isDown || this.keys.DOWN.isDown;
+    const movingLeft = this.keys.A.isDown || this.keys.LEFT.isDown;
+    const movingRight = this.keys.D.isDown || this.keys.RIGHT.isDown;
+    let targetAnim = 'k-idle';
+    if (movingLeft) targetAnim = 'k-walk-left';
+    else if (movingRight) targetAnim = 'k-walk-right';
+    else if (movingUp) targetAnim = 'k-walk-up';
+    else if (movingDown) targetAnim = 'k-walk-down';
+    if (this.anims.exists(targetAnim) && this.playerSprite.anims.currentAnim?.key !== targetAnim) {
+      this.playerSprite.play(targetAnim);
+    }
 
     const liveEnemyIds = new Set<string>();
     for (const e of this.enemies) {
       liveEnemyIds.add(e.id);
       let sprite = this.enemySprites.get(e.id);
+      let shadow = this.enemyShadows.get(e.id);
+      const displaySize = e.kind === 'scout' ? SPRITE_DISPLAY.combatScout : SPRITE_DISPLAY.combatRusher;
       if (!sprite) {
-        // Create sprite based on enemy kind
         const textureKey = e.kind === 'scout' ? 'scout-idle' : 'rusher-idle';
         sprite = this.add.sprite(e.x, e.y, textureKey, 0);
-        sprite.setDisplaySize(e.radius * 2, e.radius * 2);
+        sprite.setDisplaySize(displaySize, displaySize);
         sprite.setDepth(48);
         this.enemySprites.set(e.id, sprite);
       }
+      if (!shadow) {
+        shadow = this.add.ellipse(e.x, e.y + 18, displaySize * 0.56, 10, 0x05070a, 0.45)
+          .setDepth(44);
+        this.enemyShadows.set(e.id, shadow);
+      }
       sprite.setPosition(e.x, e.y);
-      // Update texture based on phase
+      shadow.setPosition(e.x, e.y + 18);
+      const dirFrame = directionFrame4Dir(e.dirX, e.dirY);
+      // Update texture and directional frame based on phase
       if (e.phase === 'committed') {
-        sprite.setTexture(e.kind === 'scout' ? 'scout-recoil' : 'rusher-charge');
+        sprite.setTexture(e.kind === 'scout' ? 'scout-recoil' : 'rusher-charge', dirFrame);
         sprite.setTint(0xf87171);
       } else if (e.phase === 'telegraph') {
-        sprite.setTexture(e.kind === 'scout' ? 'scout-windup' : 'rusher-windup');
+        sprite.setTexture(e.kind === 'scout' ? 'scout-windup' : 'rusher-windup', dirFrame);
         sprite.clearTint();
       } else {
-        sprite.setTexture(e.kind === 'scout' ? 'scout-idle' : 'rusher-idle');
+        sprite.setTexture(e.kind === 'scout' ? 'scout-idle' : 'rusher-idle', dirFrame);
         sprite.clearTint();
       }
+      sprite.setDisplaySize(displaySize, displaySize);
     }
     for (const [id, sprite] of this.enemySprites) {
       if (!liveEnemyIds.has(id)) {
         sprite.destroy();
         this.enemySprites.delete(id);
+      }
+    }
+    for (const [id, shadow] of this.enemyShadows) {
+      if (!liveEnemyIds.has(id)) {
+        shadow.destroy();
+        this.enemyShadows.delete(id);
       }
     }
 

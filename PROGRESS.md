@@ -530,3 +530,25 @@ Add concise entries at the bottom; do not rewrite prior entries to make earlier 
 - Blockers / remaining work: manual visual playthrough (campus background visible behind grid) still pending — no visible desktop/browser in this environment.
 - Next action: commit the change on `fix/world-backgrounds-visible`; ready for review/integration via PR.
 - Handoff / integration: branch only until integrated via PR.
+
+### ASSET-ALIGN-001 - align markers/assets to painted landmarks and fix character sizing
+
+- Status: Ready for review
+- Agent/session: AI Studio Build / asset-align-and-sizing-20261120
+- Human owner: Unassigned
+- Branch/worktree: no `.git` metadata present in workspace (`/app/applet`)
+- Started / last updated: 20 November 2026 (America/Los_Angeles)
+- Scope / owned files: `assets/backgrounds/_revisions/twilight-library-courtyard-encounter.png`, `assets/backgrounds/_revisions/moonlit-dorm-void-doorway.png`, `assets/backgrounds/_revisions/pixel-art-leather-wallet-icon.png`, `assets/characters/_revisions/lina/lina-idle-48px.png`, `assets/characters/_revisions/lina/lina-shelter-48px.png`, `assets/runtime-manifest.json`, `src/game/sprite-metrics.ts` (new), `src/content/maps/{types,campus,library,dorm,clinic,settlement}.ts`, `src/game/scenes/{WorldScene,CombatScene,RescueScene,PreviewScene}.ts`, `src/main.ts`, `tests/layout-and-sizing.test.ts` (new), `PROGRESS.md`. All original source art files preserved. No new dependencies or `RunState`/combat-rule contract changes.
+- Acceptance criteria: confusing/broken backgrounds and multi-frame Lina/wallet sprites are replaced via `_revisions/` and `runtime-manifest.json`; doors, interactables, NPCs, triggers, cover blocks, and switches align with painted landmarks across all 5 world maps and `RescueScene`; characters render at readable, proportional sizes across exploration, combat, rescue, and preview scenes; `npm run check` and headless Chromium visual checks pass with zero console errors.
+- Completed so far:
+  1. Replaced confusing/broken assets via `_revisions/` and updated `assets/runtime-manifest.json`: generated a clean character-free twilight library courtyard backdrop (`twilight-library-courtyard-encounter.png`), generated a pixel-aligned moonlit breach dorm backdrop without the right-edge checkerboard shift (`moonlit-dorm-void-doorway.png`), extracted single-pose 48×48 sprites for `lina-idle-48px.png` and `lina-shelter-48px.png`, and tightly cropped `pixel-art-leather-wallet-icon.png` to 48×48.
+  2. Realigned doors, interactables, NPCs, and triggers to real painted landmarks across `campus` (bench, wallet prop sprite, library entrance steps), `library` (twilight courtyard walkway and Campus exit clear of streetlamp), `dorm` (Kingsley on open floor, TV at bottom-center, fridge far-left, K's bed top-left, hallway door and breach portal in bottom-right alcove), `clinic` (window, radio table, open-floor spawn, right doorway mat), `settlement` (clinic doorway under medical cross, notice board, lantern supply stand, camp civilian sprite at ration table, Isshin at shooting range), and `RescueScene` (handcart, stone/tarp shelter, sandbag cover, glowing pillar switch, covered alcove for Mai).
+  3. Centralized character display sizing in `src/game/sprite-metrics.ts` and scaled K, NPCs, allies, and enemies across `WorldScene` (64px with ground shadows, Y-depth sorting, and fixed NPC pulse tween), `PreviewScene` (60px), `CombatScene` (54–60px decoupled from collision hitboxes with walk/4-dir facing frames), and `RescueScene` (50–60px with clean single-pose Lina switching).
+  4. Added `tests/layout-and-sizing.test.ts` covering map grid bounds, reachability, landmark coordinates, and sprite sizing invariants.
+- Verification: 20 November 2026: `npm run check` passed (90 runtime assets validated and prepared, strict TypeScript clean, 25/25 Vitest tests across 3 files, production Vite build clean with expected Phaser chunk warning). Visual Chromium verification at 1440×900 confirmed alignment and sizing across `campus`, `library`, `dorm`, `clinic`, `settlement`, `CombatScene`, and `RescueScene` with 0 console errors and 0 warnings.
+- Blockers / remaining work: Workspace has no `.git` directory; apply diff to a feature branch in the team Git repository before opening a PR.
+- Next action: Apply changes on a feature branch and run a manual Story/Real playthrough through all Chapter One scenes.
+- Handoff / integration: Local workspace edits only (no `.git` repo in container).
+
+- **20 November 2026 - ASSET-ALIGN-001:** replaced broken/confusing background and sprite assets via `_revisions/` (`twilight-library-courtyard-encounter`, `moonlit-dorm-void-doorway`, `lina-idle-48px`, `lina-shelter-48px`, `pixel-art-leather-wallet-icon`), realigned all world map markers/doors/NPCs and `RescueScene` cover/switch landmarks to match the painted backgrounds, and scaled character/enemy sprites cleanly across `WorldScene`, `CombatScene`, `RescueScene`, and `PreviewScene`. Verified with `npm run check` (90 assets, 25/25 tests) and headless Chromium visual checks across all maps and arenas (0 console errors).
+

@@ -30,6 +30,8 @@ export interface MapInteractable {
   dialogueId: string;
   /** Label shown in the interaction prompt. */
   prompt: string;
+  /** Optional prop image asset ID to render at this interactable tile. */
+  spriteId?: string;
   /** Optional: only interactable if this flag is set. */
   requiresFlag?: string;
   /** Optional: only interactable if this flag is NOT set. */
@@ -41,6 +43,8 @@ export interface MapDoor {
   position: MapPosition;
   targetMap: string;
   targetSpawn: MapPosition;
+  /** Short world label displayed at the unlocked doorway. */
+  label?: string;
   /** Optional: only usable if this flag is set. */
   requiresFlag?: string;
   /** Optional: only usable if this flag is NOT set. */

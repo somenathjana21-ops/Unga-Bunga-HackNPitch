@@ -6,16 +6,16 @@ export const libraryMap: GameMap = {
   name: 'Library courtyard',
   grid: [
     '################',
+    '################',
+    '################',
+    '###########...##',
     '#..............#',
-    '#..............#',
-    '#..............#',
-    'D..............D',
-    '#..............#',
-    '#..............#',
+    '#..............D',
+    '#D.............#',
     '#..............#',
     '################',
   ],
-  spawn: { x: 2, y: 6 },
+  spawn: { x: 2, y: 5 },
   objective: 'Find Hachimi outside the library.',
   npcs: [
     {
@@ -38,7 +38,7 @@ export const libraryMap: GameMap = {
   triggers: [
     {
       id: 'bracelet-scene',
-      position: { x: 8, y: 4 },
+      position: { x: 9, y: 5 },
       dialogueId: 'library-bracelet-scene',
       requiresFlag: 'library-hachimi-met',
       excludesFlag: 'library-breakup-done',
@@ -46,15 +46,17 @@ export const libraryMap: GameMap = {
   ],
   doors: [
     {
-      position: { x: 0, y: 4 },
+      position: { x: 1, y: 6 },
       targetMap: 'campus',
-      targetSpawn: { x: 14, y: 4 },
+      targetSpawn: { x: 13, y: 3 },
+      label: 'Campus',
       objective: 'Reach the faculty library.',
     },
     {
-      position: { x: 15, y: 4 },
+      position: { x: 15, y: 5 },
       targetMap: 'dorm',
-      targetSpawn: { x: 2, y: 6 },
+      targetSpawn: { x: 11, y: 6 },
+      label: 'Home',
       requiresFlag: 'library-breakup-done',
       objective: 'Go home.',
     },

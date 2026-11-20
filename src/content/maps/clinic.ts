@@ -6,29 +6,29 @@ export const clinicMap: GameMap = {
   name: 'Resistance clinic',
   grid: [
     '################',
+    '################',
+    '################',
     '#..............#',
-    '#..............#',
-    '#..............#',
-    '#..............D',
+    '#.............D#',
     '#..............#',
     '#..............#',
     '#..............#',
     '################',
   ],
-  spawn: { x: 2, y: 6 },
+  spawn: { x: 6, y: 5 },
   objective: 'Speak to Mai.',
   npcs: [
     {
       id: 'mai-wake',
       characterId: 'mai',
-      position: { x: 5, y: 4 },
+      position: { x: 8, y: 5 },
       dialogueId: 'clinic-wake',
       excludesFlag: 'clinic-woke',
     },
     {
       id: 'mai-history-1',
       characterId: 'mai',
-      position: { x: 5, y: 4 },
+      position: { x: 8, y: 5 },
       dialogueId: 'clinic-mai-history-1',
       requiresFlag: 'clinic-woke',
       excludesFlag: 'clinic-history-part1',
@@ -36,7 +36,7 @@ export const clinicMap: GameMap = {
     {
       id: 'mai-history-2',
       characterId: 'mai',
-      position: { x: 5, y: 4 },
+      position: { x: 8, y: 5 },
       dialogueId: 'clinic-mai-history-2',
       requiresFlag: 'clinic-history-part1',
       excludesFlag: 'clinic-history-part2',
@@ -44,7 +44,7 @@ export const clinicMap: GameMap = {
     {
       id: 'isshin-clinic',
       characterId: 'isshin',
-      position: { x: 9, y: 3 },
+      position: { x: 11, y: 4 },
       dialogueId: 'clinic-wrong-name-1',
       requiresFlag: 'clinic-history-part2',
       excludesFlag: 'clinic-wrong-name-part1',
@@ -52,7 +52,7 @@ export const clinicMap: GameMap = {
     {
       id: 'mai-wrong-name-2',
       characterId: 'mai',
-      position: { x: 5, y: 4 },
+      position: { x: 8, y: 5 },
       dialogueId: 'clinic-wrong-name-2',
       requiresFlag: 'clinic-wrong-name-part1',
       excludesFlag: 'clinic-wrong-name-part2',
@@ -60,7 +60,7 @@ export const clinicMap: GameMap = {
     {
       id: 'mai-wrong-name-3',
       characterId: 'mai',
-      position: { x: 5, y: 4 },
+      position: { x: 8, y: 5 },
       dialogueId: 'clinic-wrong-name-3',
       requiresFlag: 'clinic-wrong-name-part2',
       excludesFlag: 'clinic-wrong-name-done',
@@ -69,7 +69,7 @@ export const clinicMap: GameMap = {
   interactables: [
     {
       id: 'window',
-      position: { x: 12, y: 2 },
+      position: { x: 8, y: 2 },
       dialogueId: 'clinic-window',
       prompt: 'Look out the window',
       requiresFlag: 'clinic-woke',
@@ -77,7 +77,7 @@ export const clinicMap: GameMap = {
     },
     {
       id: 'radio',
-      position: { x: 3, y: 2 },
+      position: { x: 7, y: 2 },
       dialogueId: 'clinic-radio-archive',
       prompt: 'Inspect radio',
       requiresFlag: 'clinic-window-seen',
@@ -87,9 +87,10 @@ export const clinicMap: GameMap = {
   triggers: [],
   doors: [
     {
-      position: { x: 15, y: 4 },
+      position: { x: 14, y: 4 },
       targetMap: 'settlement',
-      targetSpawn: { x: 2, y: 6 },
+      targetSpawn: { x: 3, y: 5 },
+      label: 'Settlement',
       requiresFlag: 'clinic-wrong-name-done',
       objective: 'Explore the settlement.',
     },

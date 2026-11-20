@@ -315,7 +315,8 @@ document.querySelector('#back-to-menu')!.addEventListener('click', () => {
 
 // Development route: `?cutscene=c01` plays a cutscene directly instead of the
 // preview, so contributors can review cutscenes without replaying the opening.
-const cutsceneId = new URLSearchParams(window.location.search).get('cutscene');
+const params = new URLSearchParams(window.location.search);
+const cutsceneId = params.get('cutscene');
 if (cutsceneId) {
   menu.hidden = true;
   preview.hidden = true;
@@ -329,4 +330,6 @@ if (cutsceneId) {
       start.focus();
     },
   });
+} else if (params.get('autostart') === '1') {
+  void launchGame(selectedDifficulty());
 }
