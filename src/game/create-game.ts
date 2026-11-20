@@ -4,6 +4,7 @@ import { WorldScene } from './scenes/WorldScene';
 import { DialogueScene } from './scenes/DialogueScene';
 import { CombatScene } from './scenes/CombatScene';
 import { RescueScene } from './scenes/RescueScene';
+import { MAX_HEALTH } from './rules';
 import type { Difficulty } from './rules';
 import type { RunState } from './state';
 
@@ -51,7 +52,7 @@ export function createGame(
           game.registry.set('counterUnlocked', initialState.counterUnlocked);
           game.registry.set('rescueStatus', initialState.rescueStatus);
         } else {
-          game.registry.set('health', 100);
+          game.registry.set('health', MAX_HEALTH);
           game.registry.set('checkpoint', 'campus');
           game.registry.set('milestones', []);
           game.registry.set('counterUnlocked', false);
