@@ -33,10 +33,10 @@ Do not turn an entire phase to Done because one task or placeholder is finished.
 | --- | --- | --- | --- |
 | P0-FOUNDATION | Runnable starter, rules, guides and assets | Done | Snapshot `0c507d8` on local `main`. Evidence in `docs/VERIFICATION.md`. |
 | P0-TEAM | Team-machine checks, owner assignment, shared remote and event requirements | Done | Gate closed on the project creator's sign-off on 9 November 2026. Movement confirmed on all machines. Team E retest, roster, interface sign-off and organizer clarification are tracked as follow-ups below. |
-| P1 | Exploration world | In progress | P1-001 campus slice on branch `phase-1-campus-slice`; `npm run check` clean; human playthrough pending. |
+| P1 | Exploration world | Ready for review | P1-001 campus slice merged into `integration/phases-1-4`; `npm run check` clean; human playthrough pending. |
 | P2 | Dialogue and opening story | Not started | Playable opening through settlement, including skip/read paths. |
 | P3 | Real-time combat | Not started | Pistol, dodge, enemies, counter, both difficulties, fair damage. |
-| P4 | Cutscenes, audio and settings | In progress | P4-001 cutscene player, audio buses and persisted settings on branch `phase-4-cutscene-slice`; human playthrough and integration pending. |
+| P4 | Cutscenes, audio and settings | Ready for review | P4-001 cutscene player, audio buses and persisted settings merged into `integration/phases-1-4`; human playthrough pending. |
 | P5 | Rescue and ending | Not started | Complete route, all failure/retry paths, milestone recovery. |
 | P6-LOCAL | Continue/local saves and Vercel release | Not started | Helpers/config exist; campaign wiring and deployed checks remain. |
 | P6-CLOUD | Optional Supabase authentication/saves | Deferred | After local saves; live isolation and conflict checks required. |
