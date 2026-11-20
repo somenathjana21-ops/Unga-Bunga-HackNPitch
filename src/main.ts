@@ -39,8 +39,8 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
           <button id="start-campaign" class="primary">Begin the story <span aria-hidden="true">↗</span></button>
           <button id="open-settings" class="secondary">Settings &amp; accessibility</button>
           <button id="open-controls" class="secondary">Controls &amp; accessibility</button>
-          {devCombatButton}
-          {devRescueButton}
+          ${devCombatButton}
+          ${devRescueButton}
         </div>
         <p class="build-note">Chapter One · The Wrong Person</p>
       </div>

@@ -30,7 +30,11 @@ export function createGame(
   const Scene = SCENES[sceneKey];
   // Phaser auto-starts only the first scene given, so ordering controls which
   // scene enters first. All campaign scenes are registered so they can be
-  // launched by key from world/combat/rescue code.
+  // launched by key from world/combat/rescue code. The chosen scene also
+  // appears in the shared list, so dedupe: Phaser throws on duplicate keys.
+  const scenes = [...new Set<new () => Phaser.Scene>([
+    Scene, WorldScene, DialogueScene, CombatScene, RescueScene, PreviewScene,
+  ])];
   return new Phaser.Game({
     type: Phaser.AUTO,
     parent,
@@ -39,7 +43,7 @@ export function createGame(
     backgroundColor: '#171d24',
     pixelArt: true,
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-    scene: [Scene, WorldScene, DialogueScene, CombatScene, RescueScene, PreviewScene],
+    scene: scenes,
     audio: { noAudio: true },
     callbacks: {
       preBoot: (game) => {
