@@ -1,11 +1,17 @@
 import Phaser from 'phaser';
 import { getMap, canWalkTo, TILE_SIZE } from '../../content/maps';
 import type { GameMap } from '../../content/maps/types';
+import { characters } from '../../content/characters';
 import {
   createStoryProgress, completeSequence, hasFlag, setFlag,
   enterMap, markSettlementInteraction, areAllSettlementInteractionsDone,
 } from '../story-state';
 import type { StoryProgress } from '../story-state';
+
+/** Display name for each character ID, used by the on-map NPC labels. */
+const characterNames: Record<string, string> = Object.fromEntries(
+  characters.map((character) => [character.id, character.name]),
+);
 
 /** Sprite key for each character's 48px interaction sheet. */
 const characterSprites: Record<string, string> = {
@@ -30,8 +36,11 @@ export class WorldScene extends Phaser.Scene {
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
   private npcSprites: Map<string, Phaser.GameObjects.Sprite> = new Map();
   private interactableMarkers: Map<string, Phaser.GameObjects.Rectangle> = new Map();
+  private npcLabels: Map<string, Phaser.GameObjects.Text> = new Map();
+  private npcMarkers: Map<string, Phaser.GameObjects.Text> = new Map();
   private objectiveText!: Phaser.GameObjects.Text;
   private promptText!: Phaser.GameObjects.Text;
+  private locationText?: Phaser.GameObjects.Text;
   private dialogueActive = false;
   private floorGraphics!: Phaser.GameObjects.Graphics;
 
@@ -94,10 +103,12 @@ export class WorldScene extends Phaser.Scene {
     this.npcSprites.clear();
     this.interactableMarkers.forEach(m => m.destroy());
     this.interactableMarkers.clear();
+    this.clearNpcDecorations();
     if (this.floorGraphics) this.floorGraphics.destroy();
     if (this.player) this.player.destroy();
     if (this.objectiveText) this.objectiveText.destroy();
     if (this.promptText) this.promptText.destroy();
+    if (this.locationText) this.locationText.destroy();
 
     this.map = getMap(mapId);
     enterMap(this.progress, mapId, this.map.objective);
@@ -148,22 +159,62 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private spawnNpcs() {
-    // Clean up old NPC sprites
+    // Clean up old NPC sprites and their labels/markers
     this.npcSprites.forEach(s => s.destroy());
     this.npcSprites.clear();
+    this.clearNpcDecorations();
 
     for (const npc of this.map.npcs) {
       if (npc.excludesFlag && hasFlag(this.progress, npc.excludesFlag)) continue;
       if (npc.requiresFlag && !hasFlag(this.progress, npc.requiresFlag)) continue;
 
       const spriteKey = characterSprites[npc.characterId] ? `sprite-${characterSprites[npc.characterId]}` : 'sprite-k';
-      const sprite = this.add.sprite(
-        npc.position.x * TILE_SIZE + 24,
-        npc.position.y * TILE_SIZE + 24,
-        spriteKey, 0,
-      );
+      const centerX = npc.position.x * TILE_SIZE + 24;
+      const topY = npc.position.y * TILE_SIZE;
+      const name = characterNames[npc.characterId] ?? npc.characterId;
+
+      const sprite = this.add.sprite(centerX, topY + 24, spriteKey, 0).setDepth(10);
       this.npcSprites.set(npc.id, sprite);
+
+      // Name plate under the character so quest NPCs are identifiable at a glance.
+      const label = this.add.text(centerX, topY + TILE_SIZE - 2, name, {
+        fontFamily: 'Segoe UI, Arial, sans-serif',
+        fontSize: '10px',
+        color: '#e3b16b',
+        backgroundColor: '#0d1117d9',
+        padding: { x: 4, y: 1 },
+      }).setOrigin(0.5, 1).setDepth(20);
+      this.npcLabels.set(npc.id, label);
+
+      // "!" prompt above talkable NPCs (all visible NPCs here have dialogue).
+      const marker = this.add.text(centerX, topY + 2, '!', {
+        fontFamily: 'Segoe UI, Arial, sans-serif',
+        fontSize: '14px',
+        fontStyle: 'bold',
+        color: '#edbb70',
+        stroke: '#0d1117',
+        strokeThickness: 3,
+      }).setOrigin(0.5, 0).setDepth(20);
+      this.npcMarkers.set(npc.id, marker);
+      this.tweens.add({
+        targets: marker,
+        y: topY - 2,
+        duration: 700,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut',
+      });
     }
+  }
+
+  private clearNpcDecorations() {
+    this.npcLabels.forEach(label => label.destroy());
+    this.npcLabels.clear();
+    this.npcMarkers.forEach(marker => {
+      this.tweens.killTweensOf(marker);
+      marker.destroy();
+    });
+    this.npcMarkers.clear();
   }
 
   private spawnInteractableMarkers() {
@@ -179,7 +230,7 @@ export class WorldScene extends Phaser.Scene {
         item.position.x * TILE_SIZE + 24,
         item.position.y * TILE_SIZE + 24,
         20, 20, 0xe9b45c, 0.4,
-      ).setStrokeStyle(1, 0xe9b45c);
+      ).setStrokeStyle(1, 0xe9b45c).setDepth(5);
       this.interactableMarkers.set(item.id, marker);
     }
   }
@@ -189,7 +240,7 @@ export class WorldScene extends Phaser.Scene {
       this.tile.x * TILE_SIZE + 24,
       this.tile.y * TILE_SIZE + 24,
       'sprite-k', 0,
-    );
+    ).setDepth(10);
   }
 
   private createObjectiveUI() {
@@ -199,6 +250,15 @@ export class WorldScene extends Phaser.Scene {
       color: '#e3b16b',
       backgroundColor: '#0d1117',
       padding: { x: 8, y: 4 },
+    }).setScrollFactor(0).setDepth(100);
+
+    // Current room name, so the player always knows which map they are in.
+    this.locationText = this.add.text(12, 42, this.map.name, {
+      fontFamily: 'Segoe UI, Arial, sans-serif',
+      fontSize: '12px',
+      color: '#8892a0',
+      backgroundColor: '#0d1117',
+      padding: { x: 8, y: 3 },
     }).setScrollFactor(0).setDepth(100);
 
     this.promptText = this.add.text(this.scale.width / 2, this.scale.height - 24, '', {

@@ -305,17 +305,33 @@ Copy this template as a new subsection; replace the placeholders:
 
 ### WORLD-FIX-001 - blank story-mode canvas on launch
 
-- Status: Ready for review
+- Status: Done
 - Agent/session: OpenCode / story-blank-fix-20261121
 - Human owner: Unassigned
-- Branch/worktree: `master`, `C:/Users/somen/OneDrive/Desktop/want-main`; working tree only.
+- Branch/worktree: `master`, `C:/Users/somen/OneDrive/Desktop/want-main`; committed and pushed.
 - Started / last updated: 21 November 2026 (Asia/Calcutta)
 - Scope / owned files: `src/game/create-game.ts`, `src/main.ts` (dev-button string interpolation only), and this tracker entry/log. No map, content, rule, asset or dependency changes.
 - Acceptance criteria: entering Story Mode renders the campus map (tiles, player, objective) instead of a blank canvas, for both new runs and resumed runs; the same path works in the production build and for the dev combat/rescue scenes; `npm run check` passes.
 - Completed so far: reproduced the blank canvas. Phaser logged `Error: Cannot add Scene with duplicate key: WorldScene` and aborted scene boot because `createGame` registered the selected scene twice (once as `Scene`, again in the shared scene array). `create-game.ts` now dedupes the scene classes before constructing `Phaser.Game`. Also fixed the menu template literal using `{devCombatButton}` / `{devRescueButton}` instead of `${...}`, which printed literal placeholders instead of the dev launch buttons.
 - Verification: 21 November 2026, dev server (`vite` on 127.0.0.1:5174) and production preview (`vite preview` on 4173), Chromium via the in-app browser. Before the fix: duplicate-key error, zero active scenes, blank canvas. After the fix: no console errors; `WorldScene` reaches RUNNING with `mapId: campus`, six display objects, a visible `sprite-k` player at (120, 312), objective text "Reach the faculty library."; all ten character sheets and seven portraits return 200. Production build: Story Mode shows a 768x432 canvas with mode label "Story Mode · Chapter One", 17 character asset requests succeed and no console errors. Dev combat launch reached a scene with no duplicate-key error. `npm run check` passed on 21 November 2026 (21 runtime assets, strict TypeScript, 17/17 tests, production build; expected Phaser chunk-size warning). Not run: a visible-window screenshot (no visible desktop in this environment), keyboard movement/dialogue playthrough.
-- Blockers / remaining work: manual keyboard playthrough of the opening in both modes is still pending; no commit or PR yet.
-- Next action: run the documented Phase 1/2 manual checks for movement, triggers and dialogue in Story and Real Mode, then commit per the branch workflow.
+- Blockers / remaining work: manual keyboard playthrough of the opening in both modes is still pending.
+- Next action: run the documented Phase 1/2 manual checks for movement, triggers and dialogue in Story and Real Mode.
+- Handoff / integration: committed as `7acbfea` and pushed to `origin/master` on 21 November 2026; integrated on `master`.
+
+### WORLD-FIX-002 - make quest NPCs findable on the exploration maps
+
+- Status: Ready for review
+- Agent/session: OpenCode / npc-findability-20261121
+- Human owner: Unassigned
+- Branch/worktree: `master`, `C:/Users/somen/OneDrive/Desktop/want-main`; working tree only.
+- Started / last updated: 21 November 2026 (Asia/Calcutta)
+- Scope / owned files: `src/game/scenes/WorldScene.ts` and this tracker entry/log. No map data, dialogue content, rules, assets or dependencies changed.
+- Acceptance criteria: Hachimi and every other talkable NPC are identifiable without guessing, the current room name is visible, the existing interaction prompt still works, and `npm run check` passes.
+- Completed so far: reproduced the report by walking campus → library: Hachimi's NPC, sprite, collision and `library-hachimi-meet` dialogue were all functional, but she rendered as a small unlabeled sprite on a dark, empty courtyard, so she was easy to miss. Added a name plate under each NPC using the shared character names, a bobbing gold `!` marker above each talkable NPC, an explicit depth ordering (floor < interactable markers < characters < labels < HUD) and a room-name label under the objective. Labels and markers are destroyed and recreated with the NPCs on map changes and after dialogue.
+- Verification: 21 November 2026, dev server + Chromium in-app browser. Captured the rendered canvas through a Phaser snapshot: library now shows "Library courtyard" under the objective, with Hachimi's sprite, "Hachimi" name plate and `!` marker at (6,5). Walked to (5,5): prompt reads "E — Talk"; pressing E opened the Hachimi dialogue, advancing through it auto-started the bracelet scene, and finishing set `library-hachimi-met` + `library-breakup-done`, changed the objective to "Go home.", and spawned the Hachimi farewell NPC. `npm run check` passed on 21 November 2026 (21 runtime assets, strict TypeScript, 17/17 tests, production build with the expected Phaser chunk-size warning).
+- Blockers / remaining work: the full opening playthrough with real keyboard input is still pending; verify the labels on the other maps (dorm, clinic, settlement) during that pass.
+- Next action: continue the manual playthrough from the dorm (watch the news, sleep) and check NPC labels and prompts there.
+- Handoff / integration: working tree on `master`; commit/push recorded after this entry.
 
 ## Coordination rules
 
@@ -390,4 +406,9 @@ Add concise entries at the bottom; do not rewrite prior entries to make earlier 
 - **20 November 2026 - OpenCode (this session):** merged all remote phase branches into master: phase/2-dialogue-opening (P2 dialogue), feature/p3-combat-arena (P3 combat + P5 rescue), phase/6-local-saves (P6 local saves). Resolved merge conflicts in PROGRESS.md, create-game.ts, main.ts, and WorldScene.ts. Added default background and template placeholder assets (assets/backgrounds/default-background.png, default-template.png) registered in runtime-manifest.json and inventory.json so phases fall back to defaults while generated art is being produced. Updated prepare-assets.mjs to allow assets/backgrounds as a valid source folder. Cutscene player falls back to default template when generated images fail to load. Fixed TypeScript errors from merged branch code (import paths, type assertions, unused variables). Restored phase-2 map files corrupted during binary merge resolution. `npm run check` passes: 21 runtime assets validated, strict TypeScript clean, 17 tests pass, production build succeeds (expected Phaser chunk-size warning only). All phases P1-P6 are now integrated on master; browser/manual playthrough checks Not run (no visible desktop/browser in this environment).
 
 - **21 November 2026 - WORLD-FIX-001 - OpenCode:** fixed the blank Story Mode canvas. `createGame` registered the selected scene twice (as `Scene` plus in the shared scene array), so Phaser threw `Cannot add Scene with duplicate key: WorldScene` and no scene booted. Deduped the scene classes in `src/game/create-game.ts` and fixed the dev-button template placeholders in `src/main.ts`. Dev and production preview checks in Chromium show WorldScene running on `campus` with the player and objective visible, all character assets loading and no console errors; `npm run check` passes (21 assets, 17/17 tests, production build). Uncommitted on `master`; manual keyboard playthrough still pending.
+
+- **21 November 2026 - WORLD-FIX-001 - OpenCode:** committed the blank-canvas fix as `7acbfea` and pushed it to `origin/master`. The tracker entries are now integrated on `master`; the earlier "uncommitted" note in this log applies only to the preceding entry.
+
+- **21 November 2026 - WORLD-FIX-002 - OpenCode:** investigated the "Find Hachimi outside the library" report. Hachimi was present, reachable and fully interactable; she was simply a small unlabeled sprite in a dark empty courtyard. Added NPC name plates, a bobbing gold `!` marker over talkable NPCs, explicit render depths and a current-room label under the objective in `src/game/scenes/WorldScene.ts`. Verified via Phaser canvas snapshots and a walk-through of Hachimi's meeting → bracelet → farewell flow; `npm run check` passes (21 assets, 17/17 tests, production build). Committed and pushed after this entry.
+
 
