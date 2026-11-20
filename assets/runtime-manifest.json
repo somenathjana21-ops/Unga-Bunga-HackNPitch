@@ -1,0 +1,182 @@
+{
+  "version": 1,
+  "assets": [
+    {
+      "id": "hachimi-interaction-sprites-48px",
+      "source": "assets/characters/hachimi/hachimi-interaction-sprites-48px.png",
+      "output": "characters/hachimi/hachimi-interaction-sprites-48px.png",
+      "width": 144,
+      "height": 96,
+      "frameWidth": 48,
+      "frameHeight": 48,
+      "frames": 6,
+      "kind": "interaction-poses-not-walk-cycles"
+    },
+    {
+      "id": "hachimi-speaking-pose",
+      "source": "assets/characters/_revisions/hachimi/hachimi-speaking-pose.png",
+      "output": "characters/hachimi/hachimi-speaking-pose.png",
+      "width": 1024,
+      "height": 1536
+    },
+    {
+      "id": "isshin-interaction-sprites-48px",
+      "source": "assets/characters/isshin/isshin-interaction-sprites-48px.png",
+      "output": "characters/isshin/isshin-interaction-sprites-48px.png",
+      "width": 144,
+      "height": 96,
+      "frameWidth": 48,
+      "frameHeight": 48,
+      "frames": 6,
+      "kind": "interaction-poses-not-walk-cycles"
+    },
+    {
+      "id": "isshin-speaking-pose",
+      "source": "assets/characters/_revisions/isshin/isshin-speaking-pose.png",
+      "output": "characters/isshin/isshin-speaking-pose.png",
+      "width": 1024,
+      "height": 1536
+    },
+    {
+      "id": "k-interaction-sprites-48px",
+      "source": "assets/characters/k/k-interaction-sprites-48px.png",
+      "output": "characters/k/k-interaction-sprites-48px.png",
+      "width": 144,
+      "height": 96,
+      "frameWidth": 48,
+      "frameHeight": 48,
+      "frames": 6,
+      "kind": "interaction-poses-not-walk-cycles"
+    },
+    {
+      "id": "k-persona-poster",
+      "source": "assets/characters/_revisions/k/k-persona-poster.png",
+      "output": "characters/k/k-persona-poster.png",
+      "width": 1122,
+      "height": 1402
+    },
+    {
+      "id": "k-speaking-pose",
+      "source": "assets/characters/_revisions/k/k-speaking-pose.png",
+      "output": "characters/k/k-speaking-pose.png",
+      "width": 1024,
+      "height": 1536
+    },
+    {
+      "id": "kingsley-interaction-sprites-48px",
+      "source": "assets/characters/kingsley/kingsley-interaction-sprites-48px.png",
+      "output": "characters/kingsley/kingsley-interaction-sprites-48px.png",
+      "width": 144,
+      "height": 96,
+      "frameWidth": 48,
+      "frameHeight": 48,
+      "frames": 6,
+      "kind": "interaction-poses-not-walk-cycles"
+    },
+    {
+      "id": "kingsley-speaking-pose",
+      "source": "assets/characters/kingsley/kingsley-speaking-pose.png",
+      "output": "characters/kingsley/kingsley-speaking-pose.png",
+      "width": 1024,
+      "height": 1536
+    },
+    {
+      "id": "kingsleys-girlfriend-interaction-sprites-48px",
+      "source": "assets/characters/kingsleys-girlfriend/kingsleys-girlfriend-interaction-sprites-48px.png",
+      "output": "characters/kingsleys-girlfriend/kingsleys-girlfriend-interaction-sprites-48px.png",
+      "width": 144,
+      "height": 96,
+      "frameWidth": 48,
+      "frameHeight": 48,
+      "frames": 6,
+      "kind": "interaction-poses-not-walk-cycles"
+    },
+    {
+      "id": "mai-interaction-sprites-48px",
+      "source": "assets/characters/mai/mai-interaction-sprites-48px.png",
+      "output": "characters/mai/mai-interaction-sprites-48px.png",
+      "width": 144,
+      "height": 96,
+      "frameWidth": 48,
+      "frameHeight": 48,
+      "frames": 6,
+      "kind": "interaction-poses-not-walk-cycles"
+    },
+    {
+      "id": "mai-speaking-pose",
+      "source": "assets/characters/mai/mai-speaking-pose.png",
+      "output": "characters/mai/mai-speaking-pose.png",
+      "width": 1024,
+      "height": 1536
+    },
+    {
+      "id": "man-1-interaction-sprites-48px",
+      "source": "assets/characters/man-1/man-1-interaction-sprites-48px.png",
+      "output": "characters/man-1/man-1-interaction-sprites-48px.png",
+      "width": 144,
+      "height": 96,
+      "frameWidth": 48,
+      "frameHeight": 48,
+      "frames": 6,
+      "kind": "interaction-poses-not-walk-cycles"
+    },
+    {
+      "id": "man-2-interaction-sprites-48px",
+      "source": "assets/characters/_revisions/man-2/man-2-interaction-sprites-48px.png",
+      "output": "characters/man-2/man-2-interaction-sprites-48px.png",
+      "width": 144,
+      "height": 96,
+      "frameWidth": 48,
+      "frameHeight": 48,
+      "frames": 6,
+      "kind": "interaction-poses-not-walk-cycles"
+    },
+    {
+      "id": "nero-interaction-sprites-48px",
+      "source": "assets/characters/nero/nero-interaction-sprites-48px.png",
+      "output": "characters/nero/nero-interaction-sprites-48px.png",
+      "width": 144,
+      "height": 96,
+      "frameWidth": 48,
+      "frameHeight": 48,
+      "frames": 6,
+      "kind": "interaction-poses-not-walk-cycles"
+    },
+    {
+      "id": "nero-speaking-pose",
+      "source": "assets/characters/nero/nero-speaking-pose.png",
+      "output": "characters/nero/nero-speaking-pose.png",
+      "width": 1024,
+      "height": 1536
+    },
+    {
+      "id": "news-reporter-interaction-sprites-48px",
+      "source": "assets/characters/_revisions/news-reporter/news-reporter-interaction-sprites-48px.png",
+      "output": "characters/news-reporter/news-reporter-interaction-sprites-48px.png",
+      "width": 144,
+      "height": 96,
+      "frameWidth": 48,
+      "frameHeight": 48,
+      "frames": 6,
+      "kind": "interaction-poses-not-walk-cycles"
+    },
+    {
+      "id": "sayu-interaction-sprites-48px",
+      "source": "assets/characters/sayu/sayu-interaction-sprites-48px.png",
+      "output": "characters/sayu/sayu-interaction-sprites-48px.png",
+      "width": 144,
+      "height": 96,
+      "frameWidth": 48,
+      "frameHeight": 48,
+      "frames": 6,
+      "kind": "interaction-poses-not-walk-cycles"
+    },
+    {
+      "id": "sayu-speaking-pose",
+      "source": "assets/characters/sayu/sayu-speaking-pose.png",
+      "output": "characters/sayu/sayu-speaking-pose.png",
+      "width": 1024,
+      "height": 1536
+    }
+  ]
+}

@@ -1,0 +1,390 @@
+{
+  "version": 1,
+  "files": [
+    {
+      "source": "assets/characters/hachimi/hachimi-full-body.png",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 1771959,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/hachimi/hachimi-interaction-poses.png",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 1533940,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/hachimi/hachimi-interaction-sprites-48px.png",
+      "width": 144,
+      "height": 96,
+      "bytes": 30624,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/hachimi/hachimi-persona-poster.png",
+      "width": 1122,
+      "height": 1402,
+      "bytes": 3205090,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/hachimi/hachimi-speaking-pose.png",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 2257775,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/isshin/isshin-full-body.png",
+      "width": 1199,
+      "height": 1312,
+      "bytes": 2331559,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/isshin/isshin-interaction-poses.png",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 1988295,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/isshin/isshin-interaction-sprites-48px.png",
+      "width": 144,
+      "height": 96,
+      "bytes": 34650,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/isshin/isshin-persona-poster.png",
+      "width": 1122,
+      "height": 1402,
+      "bytes": 3411645,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/isshin/isshin-speaking-pose.png",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 2522744,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/k/k-full-body.png",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 1585528,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/k/k-interaction-poses.png",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 1567185,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/k/k-interaction-sprites-48px.png",
+      "width": 144,
+      "height": 96,
+      "bytes": 30558,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/k/k-persona-poster.png",
+      "width": 1122,
+      "height": 1402,
+      "bytes": 3226724,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/k/k-speaking-pose.png",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 2504602,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/kingsley/kingsley-full-body.png",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 1585622,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/kingsley/kingsley-interaction-poses.png",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 1497659,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/kingsley/kingsley-interaction-sprites-48px.png",
+      "width": 144,
+      "height": 96,
+      "bytes": 28464,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/kingsley/kingsley-persona-poster.png",
+      "width": 1122,
+      "height": 1402,
+      "bytes": 3239246,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/kingsley/kingsley-speaking-pose.png",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 2093310,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/kingsleys-girlfriend/kingsleys-girlfriend-full-body.png",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 1811662,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/kingsleys-girlfriend/kingsleys-girlfriend-interaction-poses.png",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 1553850,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/kingsleys-girlfriend/kingsleys-girlfriend-interaction-sprites-48px.png",
+      "width": 144,
+      "height": 96,
+      "bytes": 28263,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/kingsleys-girlfriend/kingsleys-girlfriend-persona-poster.png",
+      "width": 1122,
+      "height": 1402,
+      "bytes": 3294681,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/kingsleys-girlfriend/kingsleys-girlfriend-speaking-pose.png",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 2202606,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/mai/mai-full-body.png",
+      "width": 1199,
+      "height": 1312,
+      "bytes": 2148246,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/mai/mai-interaction-poses.png",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 1826868,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/mai/mai-interaction-sprites-48px.png",
+      "width": 144,
+      "height": 96,
+      "bytes": 33104,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/mai/mai-persona-poster.png",
+      "width": 1122,
+      "height": 1402,
+      "bytes": 3511473,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/mai/mai-speaking-pose.png",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 2401031,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/man-1/man-1-full-body.png",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 2104684,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/man-1/man-1-interaction-poses.png",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 1798938,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/man-1/man-1-interaction-sprites-48px.png",
+      "width": 144,
+      "height": 96,
+      "bytes": 32188,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/man-1/man-1-persona-poster.png",
+      "width": 1122,
+      "height": 1402,
+      "bytes": 3185550,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/man-1/man-1-speaking-pose.png",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 2450814,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/man-2/man-2-full-body.png",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 2009405,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/man-2/man-2-interaction-poses.png",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 1903660,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/man-2/man-2-interaction-sprites-48px.png",
+      "width": 144,
+      "height": 96,
+      "bytes": 30909,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/man-2/man-2-persona-poster.png",
+      "width": 1122,
+      "height": 1402,
+      "bytes": 3487193,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/man-2/man-2-speaking-pose.png",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 2727716,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/nero/nero-full-body.png",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 1759242,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/nero/nero-interaction-poses.png",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 1495513,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/nero/nero-interaction-sprites-48px.png",
+      "width": 144,
+      "height": 96,
+      "bytes": 27720,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/nero/nero-persona-poster.png",
+      "width": 1122,
+      "height": 1402,
+      "bytes": 3000990,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/nero/nero-speaking-pose.png",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 2000781,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/news-reporter/news-reporter-full-body.png",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 1719328,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/news-reporter/news-reporter-interaction-poses.png",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 1458088,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/news-reporter/news-reporter-interaction-sprites-48px.png",
+      "width": 144,
+      "height": 96,
+      "bytes": 26623,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/news-reporter/news-reporter-persona-poster.png",
+      "width": 1122,
+      "height": 1402,
+      "bytes": 3036259,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/news-reporter/news-reporter-speaking-pose.png",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 1956974,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/sayu/sayu-full-body.png",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 1890833,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/sayu/sayu-interaction-poses.png",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 1570493,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/sayu/sayu-interaction-sprites-48px.png",
+      "width": 144,
+      "height": 96,
+      "bytes": 27595,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/sayu/sayu-persona-poster.png",
+      "width": 1122,
+      "height": 1402,
+      "bytes": 3292360,
+      "usageRights": "confirm with creator"
+    },
+    {
+      "source": "assets/characters/sayu/sayu-speaking-pose.png",
+      "width": 1024,
+      "height": 1536,
+      "bytes": 2346478,
+      "usageRights": "confirm with creator"
+    }
+  ]
+}

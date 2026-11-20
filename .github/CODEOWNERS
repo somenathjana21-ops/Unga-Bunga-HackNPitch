@@ -1,0 +1,8 @@
+# Replace these comments with real GitHub handles once the team repository exists.
+# /src/game/              @gameplay-owner
+# /src/content/           @story-owner
+# /src/services/          @integration-owner
+# /supabase/              @integration-owner
+# /assets/                @art-owner
+# /docs/                  @project-lead
+# Do not enable mandatory code-owner approval until real owners are assigned.
