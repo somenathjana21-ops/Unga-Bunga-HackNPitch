@@ -23,8 +23,8 @@ const characterSprites: Record<string, string> = {
   nero: 'nero',
   sayu: 'sayu',
   civilian: 'k',
-  man1: 'man-1',
-  man2: 'man-2',
+  'man-1': 'man-1',
+  'man-2': 'man-2',
 };
 
 export class WorldScene extends Phaser.Scene {
@@ -120,12 +120,19 @@ export class WorldScene extends Phaser.Scene {
 
     // Auto-trigger clinic wake sequence
     if (mapId === 'clinic' && !hasFlag(this.progress, 'clinic-woke')) {
-      this.time.delayedCall(500, () => this.startDialogue('clinic-wake'));
+      // Re-check inside the callback: the player may have talked to Mai and
+      // finished the wake sequence before this delayed call fires.
+      this.time.delayedCall(500, () => {
+        if (!hasFlag(this.progress, 'clinic-woke')) this.startDialogue('clinic-wake');
+      });
     }
 
     // Auto-trigger settlement cry for help when all interactions done
     if (mapId === 'settlement' && areAllSettlementInteractionsDone(this.progress) && !hasFlag(this.progress, 'settlement-cry-heard')) {
-      this.time.delayedCall(1000, () => this.startDialogue('settlement-cry-for-help'));
+      // Same guard: the player may reach the east lane trigger before this fires.
+      this.time.delayedCall(1000, () => {
+        if (!hasFlag(this.progress, 'settlement-cry-heard')) this.startDialogue('settlement-cry-for-help');
+      });
     }
   }
 

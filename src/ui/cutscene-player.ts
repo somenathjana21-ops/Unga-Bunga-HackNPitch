@@ -10,6 +10,7 @@ import { cutscenes } from '../content/cutscenes/ledger';
 import type { Cutscene, CutsceneShot } from '../content/cutscenes/ledger';
 import { playCutscene, panTransform, type CutsceneController } from '../game/cutscene/playback';
 import { audio, type CueName } from '../services/audio';
+import manifestData from '../../assets/runtime-manifest.json';
 
 let overlay: HTMLElement | null = null;
 let imageEl: HTMLImageElement | null = null;
@@ -61,8 +62,34 @@ function refs(): void {
   nextEl = document.getElementById('cutscene-next') as HTMLButtonElement | null;
 }
 
+// Cutscene imageIds are asset IDs declared in assets/runtime-manifest.json.
+// Resolve them to their runtime output path instead of assuming a flat filename.
+const assetOutputs = new Map(
+  (manifestData.assets as { id: string; output: string }[]).map((asset) => [asset.id, asset.output]),
+);
+const DEFAULT_TEMPLATE = '/assets/backgrounds/default-template.png';
+
 function imagePath(imageId: string): string {
-  return `/assets/${imageId}.png`;
+  const output = assetOutputs.get(imageId);
+  return output ? `/assets/${output}` : `/assets/${imageId}.png`;
+}
+
+/** Show the generated default-template placeholder when required art is still pending. */
+function showTemplateFallback(image: HTMLImageElement, card: HTMLElement, caption: string): void {
+  image.onerror = null;
+  image.hidden = false;
+  image.src = DEFAULT_TEMPLATE;
+  image.alt = caption;
+  image.setAttribute('aria-label', `${caption} (art pending)`);
+  card.hidden = true;
+  // Final safety net if the template itself cannot load.
+  image.onerror = () => {
+    image.onerror = null;
+    image.hidden = true;
+    card.hidden = false;
+    card.textContent = caption + ' (art pending)';
+    card.setAttribute('aria-live', 'polite');
+  };
 }
 
 function renderShot(shot: CutsceneShot, transform: { scale: number; x: number; y: number }): void {
@@ -108,13 +135,7 @@ function renderShot(shot: CutsceneShot, transform: { scale: number; x: number; y
     image.setAttribute('aria-label', `${label}: ${shot.caption}`);
     // Fall back to the default template placeholder when generated art is
     // still being produced and the referenced image cannot load.
-    image.onerror = () => {
-      image.onerror = null;
-      image.hidden = true;
-      card.hidden = false;
-      card.textContent = shot.caption + ' (art pending)';
-      card.setAttribute('aria-live', 'polite');
-    };
+    image.onerror = () => showTemplateFallback(image, card, shot.caption);
   }
 
   captionEl.textContent = shot.caption;
@@ -138,18 +159,12 @@ function showFallback(shot: CutsceneShot): void {
   video.pause();
   video.removeAttribute('src');
   video.load();
-  if (shot.imageId) {
-    image.hidden = false;
-    image.src = imagePath(shot.imageId);
-    image.alt = shot.caption;
-    image.onerror = () => {
-      image.onerror = null;
-      image.hidden = true;
-      card.hidden = false;
-      card.textContent = shot.caption + ' (art pending)';
-      card.setAttribute('aria-live', 'polite');
-    };
-  } else {
+    if (shot.imageId) {
+      image.hidden = false;
+      image.src = imagePath(shot.imageId);
+      image.alt = shot.caption;
+      image.onerror = () => showTemplateFallback(image, card, shot.caption);
+    } else {
     card.hidden = false;
     card.textContent = shot.caption;
     card.setAttribute('aria-live', 'polite');

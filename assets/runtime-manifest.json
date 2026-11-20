@@ -121,6 +121,13 @@
       "kind": "interaction-poses-not-walk-cycles"
     },
     {
+      "id": "man-1-speaking-pose",
+      "source": "assets/characters/man-1/man-1-speaking-pose.png",
+      "output": "characters/man-1/man-1-speaking-pose.png",
+      "width": 1024,
+      "height": 1536
+    },
+    {
       "id": "man-2-interaction-sprites-48px",
       "source": "assets/characters/_revisions/man-2/man-2-interaction-sprites-48px.png",
       "output": "characters/man-2/man-2-interaction-sprites-48px.png",
@@ -130,6 +137,13 @@
       "frameHeight": 48,
       "frames": 6,
       "kind": "interaction-poses-not-walk-cycles"
+    },
+    {
+      "id": "man-2-speaking-pose",
+      "source": "assets/characters/man-2/man-2-speaking-pose.png",
+      "output": "characters/man-2/man-2-speaking-pose.png",
+      "width": 1024,
+      "height": 1536
     },
     {
       "id": "nero-interaction-sprites-48px",
