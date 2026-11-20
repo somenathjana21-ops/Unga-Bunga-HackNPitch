@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { getMap, canWalkTo, TILE_SIZE } from '../../content/maps';
 import type { GameMap } from '../../content/maps/types';
+import type { Checkpoint } from '../../content/campaign';
 import {
   createStoryProgress, completeSequence, hasFlag, setFlag,
   enterMap, markSettlementInteraction, areAllSettlementInteractionsDone,
@@ -85,7 +86,9 @@ export class WorldScene extends Phaser.Scene {
       }
     });
 
-    this.loadMap('campus');
+    // Resume the saved campaign checkpoint on reload; never heal to fresh health.
+    const savedCheckpoint = this.registry.get('checkpoint') as Checkpoint | undefined;
+    this.loadMap(savedCheckpoint ?? 'campus');
   }
 
   private loadMap(mapId: string) {
