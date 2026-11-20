@@ -41,7 +41,6 @@ export class WorldScene extends Phaser.Scene {
   private objectiveText!: Phaser.GameObjects.Text;
   private promptText!: Phaser.GameObjects.Text;
   private locationText?: Phaser.GameObjects.Text;
-  private dialogueActive = false;
   private floorGraphics!: Phaser.GameObjects.Graphics;
 
   constructor() { super('WorldScene'); }
@@ -83,13 +82,12 @@ export class WorldScene extends Phaser.Scene {
 
   create() {
     this.progress = createStoryProgress();
-    this.dialogueActive = false;
 
     this.keys = this.input.keyboard!.addKeys('W,A,S,D,UP,LEFT,DOWN,RIGHT,E,ESC') as typeof this.keys;
     this.input.keyboard!.addCapture(['UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE']);
     this.input.keyboard!.on('keydown-E', () => this.tryInteract());
     this.input.keyboard!.on('keydown-ESC', () => {
-      if (!this.dialogueActive) {
+      if (!this.scene.isActive('DialogueScene')) {
         document.querySelector<HTMLButtonElement>('#back-to-menu')?.click();
       }
     });
@@ -281,7 +279,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   update() {
-    if (this.dialogueActive || this.moving) return;
+    if (this.scene.isActive('DialogueScene') || this.moving) return;
 
     let dx = 0;
     let dy = 0;
@@ -355,7 +353,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private tryInteract() {
-    if (this.dialogueActive) return;
+    if (this.scene.isActive('DialogueScene')) return;
 
     // Check interactables
     for (const item of this.map.interactables) {
@@ -381,8 +379,7 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private startDialogue(sequenceId: string) {
-    if (this.dialogueActive) return;
-    this.dialogueActive = true;
+    if (this.scene.isActive('DialogueScene')) return;
 
     this.scene.launch('DialogueScene', {
       sequenceId,
@@ -393,7 +390,6 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private onDialogueComplete(sequenceId: string, completionFlag: string, choiceFlag?: string) {
-    this.dialogueActive = false;
     completeSequence(this.progress, sequenceId, completionFlag);
     if (choiceFlag) setFlag(this.progress, choiceFlag);
 
@@ -424,10 +420,12 @@ export class WorldScene extends Phaser.Scene {
       this.progress.objective = 'Speak to Mai.';
       this.objectiveText.setText(`Objective: ${this.progress.objective}`);
     } else if (completionFlag === 'library-hachimi-met') {
-      // Hachimi steps aside and K sees Sayu and Nero — start the bracelet scene
-      // immediately so there is no window where Hachimi has vanished but the
-      // follow-up scene has not begun.
-      this.startDialogue('library-bracelet-scene');
+      // Hachimi steps aside and K sees Sayu and Nero. Defer the bracelet scene
+      // so the current DialogueScene has fully stopped before we launch the
+      // next one; launching synchronously inside onComplete starts and stops
+      // DialogueScene in the same tick, which leaves dialogue state desynced
+      // and the controls stuck.
+      this.time.delayedCall(800, () => this.startDialogue('library-bracelet-scene'));
     } else if (completionFlag === 'library-breakup-done') {
       this.progress.objective = 'Go home.';
       this.objectiveText.setText(`Objective: ${this.progress.objective}`);
