@@ -335,7 +335,7 @@ Copy this template as a new subsection; replace the placeholders:
 
 ### BUG-HUNT-001 - asset and scene bug hunt (generated assets)
 
-- Status: Done (branch only)
+- Status: Done (merged to master)
 - Agent/session: Arena agent / asset-debug-20261120
 - Human owner: Unassigned
 - Branch/worktree: `arena/d6ee5f65-unga-bunga-hacknpitch`, `/home/user/Unga-Bunga-HackNPitch`, baseline `2059a73`.
@@ -352,8 +352,8 @@ Copy this template as a new subsection; replace the placeholders:
   7. **Delayed auto-triggers could double-fire.** The clinic wake and settlement cry were scheduled with a flag check only at schedule time; if the player triggered the same sequence first and finished it before the delay, the callback relaunched it. The callbacks now re-check the flag before starting.
 - Verification: 20 November 2026, Node 22.22.3. `npm run assets:check` validates 23 runtime assets (was 21); `npm run typecheck` clean; `npm run check` passes (23 assets, strict TypeScript, 17/17 tests, production build; the expected lazy Phaser chunk-size warning only). `assets:prepare` confirmed `public/assets/characters/man-1/man-1-speaking-pose.png` and `public/assets/characters/man-2/man-2-speaking-pose.png` are copied. A direct check confirmed all five ledger `imageId`s (`sayu`, `nero`, `man-1`, `man-2`, `mai` speaking poses) resolve to existing `public/assets` files. Sprite atlases were decoded independently: all eleven 48px sheets are 144×96 with six non-empty frames, matching the declared `frames: 6`. Browser/manual playthrough Not run: no visible browser/desktop in this environment.
 - Blockers / remaining work: none for the seven fixes. Known gaps left untouched and reported for their owners: (a) `RunState.checkpoint` is never advanced during play (`enterCheckpoint` is unused), so Continue still resumes at `campus` — wiring it needs persisted story flags, a shared-interface change owned by the Phase 5/6 integrator; (b) the dialogue sequences' `cutsceneId` values (`C01`–`C03`) are never played and are uppercase while the ledger IDs are lowercase (`c01`–`c04`), a Phase 5/2 wiring gap, not a crash; (c) manual keyboard playthrough of the opening and rescue in both modes still pending.
-- Next action: commit and push this branch, then a human playthrough of the cutscene portraits (C01–C04), the Man 1/Man 2 c02 portraits, and the rescue beats.
-- Handoff / integration: branch only; not integrated until review.
+- Next action: a human playthrough of the cutscene portraits (C01–C04), the Man 1/Man 2 c02 portraits, and the rescue beats.
+- Handoff / integration: merged into `master` via PR #1 (merge commit `41cea1b`, merged 20 November 2026); branch `arena/d6ee5f65-unga-bunga-hacknpitch` has no unique commits beyond master.
 
 ## Coordination rules
 
@@ -435,3 +435,4 @@ Add concise entries at the bottom; do not rewrite prior entries to make earlier 
 
 
 - **20 November 2026 - BUG-HUNT-001 - Arena agent:** hunted and fixed seven runtime/asset bugs that the static checks do not catch. Cutscene `imagePath()` now resolves asset IDs through `runtime-manifest.json` (portraits were 404'ing); `man-1-speaking-pose` and `man-2-speaking-pose` were added to the manifest so `c02`'s Man 1/Man 2 portraits are actually copied and served; the cutscene fallback now renders the generated `default-template.png` instead of only a text card; `WorldScene.characterSprites` keys fixed to `man-1`/`man-2` so those NPCs no longer fall back to K's sprite; `RescueScene` cover block `y` corrected to `ARENA_H`; `RescueScene.init()` marks a `not-started` run `active` so a death is saved as `failed`; and the clinic/settlement delayed auto-triggers re-check their flags so they cannot relaunch an already-finished sequence. `npm run check` passes (23 assets, strict TypeScript, 17/17 tests, production build; expected Phaser chunk warning). All five ledger `imageId`s verified to resolve to real `public/assets` files; sprite atlases decoded and confirmed 3×2 with six non-empty frames. Browser/manual playthrough Not run. Reported untouched gaps: checkpoint is never advanced (Continue still resumes at `campus`) and the dialogue `cutsceneId`s (`C01`–`C03`) are unused/case-mismatched. Branch only.
+- **20 November 2026 - BUG-HUNT-001 - Arena agent:** integrated the seven asset/scene fixes on `master`. Committed the branch as `a98faa2`, pushed it, opened PR #1 to `master`, and merged it as merge commit `41cea1b` (merged 2026-11-20T19:48:24Z). `origin/master` now contains the merge commit plus the fix; the `arena/d6ee5f65-unga-bunga-hacknpitch` branch has no unique commits beyond `master`. The BUG-HUNT-001 entry now records `merged to master`.
