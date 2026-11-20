@@ -552,3 +552,26 @@ Add concise entries at the bottom; do not rewrite prior entries to make earlier 
 
 - **20 November 2026 - ASSET-ALIGN-001:** replaced broken/confusing background and sprite assets via `_revisions/` (`twilight-library-courtyard-encounter`, `moonlit-dorm-void-doorway`, `lina-idle-48px`, `lina-shelter-48px`, `pixel-art-leather-wallet-icon`), realigned all world map markers/doors/NPCs and `RescueScene` cover/switch landmarks to match the painted backgrounds, and scaled character/enemy sprites cleanly across `WorldScene`, `CombatScene`, `RescueScene`, and `PreviewScene`. Verified with `npm run check` (90 assets, 25/25 tests) and headless Chromium visual checks across all maps and arenas (0 console errors).
 
+### COMBAT-RESCUE-UI-001 - reflex combat upgrade, dialogue/cutscene framing, and rescue switch fixes
+
+- Status: Ready for review
+- Agent/session: AI Studio Build / combat-rescue-ui-20261120
+- Human owner: Unassigned
+- Branch/worktree: no `.git` metadata present in workspace (`/app/applet`)
+- Started / last updated: 20 November 2026 (America/Los_Angeles)
+- Scope / owned files: `src/game/combat/{types,bullet,player,enemy,arena-fx,rescue-switch}.ts`, `src/game/scenes/{CombatScene,RescueScene,DialogueScene}.ts`, `src/content/encounters/rescue-beats.ts`, `src/ui/cutscene-player.ts`, `src/styles.css`, `tests/combat-and-rescue.test.ts` (new), `PROGRESS.md`. No changes to `RunState`, `rules.ts`, or dependencies.
+- Acceptance criteria: combat feels kinetic and distinct with active enemy positioning, cover-aware fire/cover-slam staggers, Reflex Bullet-Time perfect dodge counters, and active snap-reload; dialogue speaker names never overlap character portraits; cutscenes render uncropped for both widescreen environments and tall portraits; rescue gate switch works cleanly via both E and mouse click with clear phase gating, progress ring, and unified simulation clock; `npm run check` and Chromium checks pass.
+- Completed so far:
+  1. Upgraded combat (`src/game/combat/*`, `CombatScene.ts`, `RescueScene.ts`): added active Scout flanking/strafing and Rusher stalking + cover-slam stagger (`1.5x` exposed damage), bullet-vs-cover collision with ricochets, graze-assisted Perfect Dodge triggering Reflex Bullet-Time (`0.24x` slow-mo) + cover/enemy-piercing golden Counter Rail shots, 6-round magazine with active snap-reload sweet spot (`R` or click while reloading), shared `ArenaFx` (muzzle flashes, tracers, sparks, damage/status callouts, dodge ghosts, enemy HP bars, ammo/reload bar, tactical reticle), and combat audio cues.
+  2. Fixed `DialogueScene.ts`: added dedicated left portrait frame with proportional aspect-ratio scaling and shifted both `speakerText` and `bodyText` right of the portrait frame; cleanly hid portrait on choices and added clickable choice options.
+  3. Fixed `cutscene-player.ts` and `styles.css`: replaced overflowing CSS grid height with flex-column viewport-bounded `.cutscene-frame` (`16:9`, `max-height: min(64vh, 540px)`), kept portraits unscaled inside frame bounds with breathing margin, and added shot progress counter.
+  4. Fixed `RescueScene.ts` and `rescue-beats.ts`: unified simulation clock (`simNow`) so pause/teaching/switch timers never drift; clearly gated the Gate Switch (`Gate locked` in Alley/Hold with status toast, glowing `E / Click · Gate switch` in Extraction accepting both `E` and direct click with generous range and 1s circular progress arc); fixed spawn queue double-spawn/drop bugs and spawn positions; fixed `PAUSED` text visibility and teaching card dismissal.
+  5. Added unit tests in `tests/combat-and-rescue.test.ts` (29/29 total tests passing).
+- Verification: 20 November 2026: `npm run check` passed (90 runtime assets, strict TypeScript clean, 29/29 Vitest tests across 4 files, production Vite build clean). Headless Chromium verification at 1440×900 confirmed Mai's dialogue portrait/name layout, cutscene `c01` environment + Sayu portrait (`fitsInside: true`), upgraded `CombatScene`, and `RescueScene` Alley (`Gate locked`) + Extraction (`E / Click · Gate switch`) with 0 console errors.
+- Blockers / remaining work: Workspace has no `.git` directory; apply diff on a feature branch in the team Git repo before opening a PR.
+- Next action: Apply changes on a feature branch and perform a full human playthrough of Story Mode and Real Mode.
+- Handoff / integration: Local workspace edits only (no `.git` repo in container).
+
+- **20 November 2026 - COMBAT-RESCUE-UI-001:** upgraded combat into a kinetic Reflex Combat system (active Scout flanking, Rusher stalking + cover-slam stagger exposure, cover-blocking bullets, graze-assisted Perfect Dodge with Reflex Bullet-Time & piercing Counter Rail, active snap-reload, muzzle flashes/tracers/sparks/HP bars/reticle/audio), fixed DialogueScene speaker-name/portrait overlap, fixed cutscene viewport zoom/cropping for environments and portraits, and fixed RescueScene gate switch click/E activation, phase clarity, unified clock, spawn queue, and pause/teaching bugs. Verified with `npm run check` (29/29 tests) and headless Chromium checks (0 console errors).
+
+

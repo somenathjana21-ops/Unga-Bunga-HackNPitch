@@ -30,6 +30,7 @@ export class DialogueScene extends Phaser.Scene {
   private finished = false;
 
   // UI elements
+  private portraitFrame?: Phaser.GameObjects.Rectangle;
   private portraitImage?: Phaser.GameObjects.Image;
   private speakerText!: Phaser.GameObjects.Text;
   private bodyText!: Phaser.GameObjects.Text;
@@ -65,11 +66,16 @@ export class DialogueScene extends Phaser.Scene {
     const boxY = h - boxHeight;
 
     // Semi-transparent dialogue box
-    this.add.rectangle(w / 2, boxY + boxHeight / 2, w, boxHeight, 0x0d1117, 0.92)
+    this.add.rectangle(w / 2, boxY + boxHeight / 2, w, boxHeight, 0x0d1117, 0.94)
       .setStrokeStyle(2, 0x3b4654);
 
+    // Subtle portrait frame on the left (only visible when a line has a portrait)
+    this.portraitFrame = this.add.rectangle(74, boxY + 80, 112, 134, 0x151d28, 0.96)
+      .setStrokeStyle(1, 0x475569)
+      .setVisible(false);
+
     // Speaker name
-    this.speakerText = this.add.text(24, boxY + 12, '', {
+    this.speakerText = this.add.text(24, boxY + 14, '', {
       fontFamily: 'Segoe UI, Arial, sans-serif',
       fontSize: '18px',
       fontStyle: 'bold',
@@ -77,16 +83,16 @@ export class DialogueScene extends Phaser.Scene {
     });
 
     // Body text
-    this.bodyText = this.add.text(24, boxY + 42, '', {
+    this.bodyText = this.add.text(24, boxY + 44, '', {
       fontFamily: 'Segoe UI, Arial, sans-serif',
       fontSize: '15px',
       color: '#f2eee6',
-      wordWrap: { width: w - 180, useAdvancedWrap: true },
+      wordWrap: { width: w - 48, useAdvancedWrap: true },
       lineSpacing: 4,
     });
 
     // Hint text
-    this.add.text(w - 24, boxY + boxHeight - 24, 'E / Space — Continue    Esc — Skip', {
+    this.add.text(w - 24, boxY + boxHeight - 22, 'E / Space — Continue    Esc — Skip', {
       fontFamily: 'Segoe UI, Arial, sans-serif',
       fontSize: '11px',
       color: '#8892a0',
@@ -116,6 +122,14 @@ export class DialogueScene extends Phaser.Scene {
 
     // Show first line
     this.showLine();
+  }
+
+  private clearPortrait() {
+    if (this.portraitImage) {
+      this.portraitImage.destroy();
+      this.portraitImage = undefined;
+    }
+    this.portraitFrame?.setVisible(false);
   }
 
   private showLine() {
@@ -165,34 +179,43 @@ export class DialogueScene extends Phaser.Scene {
     this.speakerText.setText(speakerName);
     this.bodyText.setText(displayText);
 
-    // Portrait
-    if (this.portraitImage) {
-      this.portraitImage.destroy();
-      this.portraitImage = undefined;
-    }
+    // Portrait: render proportionally inside the dedicated left frame so it never
+    // stretches or overlaps the speaker name and body text.
+    this.clearPortrait();
     if (line.portrait) {
       const portraitKey = `portrait-${line.speaker}`;
       if (this.textures.exists(portraitKey)) {
         const boxY = this.scale.height - 160;
-        this.portraitImage = this.add.image(80, boxY + 80, portraitKey)
-          .setDisplaySize(100, 150)
-          .setOrigin(0.5, 0.5);
+        const maxW = 104;
+        const maxH = 126;
+        const src = this.textures.get(portraitKey).getSourceImage() as { width: number; height: number };
+        const scale = src && src.width > 0 && src.height > 0
+          ? Math.min(maxW / src.width, maxH / src.height)
+          : 1;
+        this.portraitFrame?.setVisible(true);
+        this.portraitImage = this.add.image(74, boxY + 80, portraitKey)
+          .setOrigin(0.5, 0.5)
+          .setDisplaySize(Math.round(src.width * scale), Math.round(src.height * scale));
       }
     }
 
-    // Adjust text position if portrait is shown
+    // Shift BOTH speaker name and body text right of the portrait frame when shown.
     if (this.portraitImage) {
-      this.bodyText.setX(160);
-      this.bodyText.setWordWrapWidth(this.scale.width - 200);
+      const textX = 148;
+      this.speakerText.setX(textX);
+      this.bodyText.setX(textX);
+      this.bodyText.setWordWrapWidth(this.scale.width - textX - 24);
     } else {
+      this.speakerText.setX(24);
       this.bodyText.setX(24);
       this.bodyText.setWordWrapWidth(this.scale.width - 48);
     }
   }
 
   private showChoices(choice: DialogueChoice) {
-    this.speakerText.setText('Choice');
-    this.bodyText.setText(choice.prompt);
+    this.clearPortrait();
+    this.speakerText.setX(24).setText('Choice');
+    this.bodyText.setX(24).setWordWrapWidth(this.scale.width - 48).setText(choice.prompt);
 
     // Clear previous choices
     this.choiceContainer.removeAll(true);
@@ -200,12 +223,21 @@ export class DialogueScene extends Phaser.Scene {
 
     const w = this.scale.width;
     const boxY = this.scale.height - 160;
-    const startY = boxY + 70;
+    const startY = boxY + 76;
 
     choice.options.forEach((opt, i) => {
       const y = startY + i * 28;
-      const bg = this.add.rectangle(w / 2, y, w - 80, 24, 0x1e262e, 0.9)
-        .setStrokeStyle(1, 0x3b4654);
+      const bg = this.add.rectangle(w / 2, y, w - 80, 24, 0x1e262e, 0.92)
+        .setStrokeStyle(1, 0x3b4654)
+        .setInteractive({ useHandCursor: true });
+      bg.on('pointerover', () => {
+        this.choiceIndex = i;
+        this.updateChoiceHighlight();
+      });
+      bg.on('pointerdown', () => {
+        this.choiceIndex = i;
+        this.advance();
+      });
       const txt = this.add.text(w / 2, y, opt.label, {
         fontFamily: 'Segoe UI, Arial, sans-serif',
         fontSize: '14px',

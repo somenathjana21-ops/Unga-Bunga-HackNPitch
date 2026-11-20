@@ -1,32 +1,41 @@
 import Phaser from 'phaser';
 import { newRun, completeMilestone, restartRescue, type RunState } from '../state';
 import type { Difficulty } from '../rules';
-import { difficultyRules, MAX_HEALTH } from '../rules';
+import { combatTuning, difficultyRules, MAX_HEALTH } from '../rules';
 import { saveRun } from '../../services/local-save';
-import type { CombatEnemy, CombatBullet, CoverRect, EnemyKind } from '../combat/types';
+import { audio } from '../../services/audio';
+import type { ArenaBounds, CombatEnemy, CombatBullet, CoverRect, EnemyKind } from '../combat/types';
 import { DamageSystem } from '../combat/damage';
-import { Player } from '../combat/player';
-import { makeEnemy, updateEnemy } from '../combat/enemy';
-import { updateBullet } from '../combat/bullet';
+import { Player, PERFECT_DODGE_GRAZE_MARGIN } from '../combat/player';
+import {
+  EXPOSED_DAMAGE_MULT,
+  isEnemyExposed,
+  makeEnemy,
+  staggerEnemy,
+  updateEnemy,
+} from '../combat/enemy';
+import { bulletHitsCover, updateBullet } from '../combat/bullet';
+import { ArenaFx } from '../combat/arena-fx';
+import {
+  SWITCH_HOLD_MS,
+  SWITCH_KEEP_RADIUS,
+  evaluateSwitchAttempt,
+  switchHoldProgress,
+  type RescueBeatId,
+} from '../combat/rescue-switch';
 import type { RescueBeatDef } from '../../content/encounters/rescue-beats';
 import { rescueBeats } from '../../content/encounters/rescue-beats';
 import { playCutsceneOverlay, isCutsceneActive } from '../../ui/cutscene-player';
 import { loadPreferences } from '../../services/preferences';
 import { SPRITE_DISPLAY, directionFrame4Dir } from '../sprite-metrics';
 
-// Rescue mission arena. One continuous combat scene runs the three rescue beats
-// (alley -> shelter hold -> extraction) while preserving campaign health across
-// all of them. Only reaching Lina's safety grants girl-rescued and full recovery
-// exactly once. Failure kills K, shows Game Over, and offers an explicit restart
-// of this mission only (not the campus/dorm story).
-
 const PLAYER_RADIUS = 10;
-const BULLET_RADIUS = 3;
-const HIT_FLASH_MS = 120;
-const HIT_TEXT_MS = 220;
-const FIRE_COOLDOWN_MS = 400;
+const BULLET_RADIUS = 3.5;
+const HIT_FLASH_MS = 130;
+const HIT_TEXT_MS = 260;
+const FIRE_COOLDOWN_MS = 260;
 const BULLET_TTL_MS = 2000;
-const SWITCH_HOLD_MS = 1000; // hold E for one second to open the gate
+const REFLEX_TIME_SCALE = 0.24;
 
 // Hard cover rectangles aligned to the painted props in twilight-ruins-warehouse-yard.png:
 // left handcart, center stone wall + tarp shelter, and bottom-right sandbag barricade.
@@ -42,10 +51,9 @@ const LINA_START = { x: 444, y: 222 };   // sheltered under the green tarp behin
 const MAI_MARKER = { x: 682, y: 170 };   // warm-lit covered safe alcove on top-right
 const ISSHIN_POS = { x: 594, y: 244 };   // behind the sandbag barricade providing covering fire
 const SWITCH_POS = { x: 518, y: 152 };   // glowing gate switch on the concrete pillar
-const LINA_SAFE = { x: MAI_MARKER.x, y: MAI_MARKER.y }; // Lina's destination
+const LINA_SAFE = { x: MAI_MARKER.x, y: MAI_MARKER.y };
 
-type BeatId = 'alley' | 'hold' | 'extraction';
-const BEAT_ORDER: BeatId[] = ['alley', 'hold', 'extraction'];
+const BEAT_ORDER: RescueBeatId[] = ['alley', 'hold', 'extraction'];
 
 interface Lina {
   x: number;
@@ -67,8 +75,13 @@ export class RescueScene extends Phaser.Scene {
   private player = new Player();
   private enemies: CombatEnemy[] = [];
   private bullets: CombatBullet[] = [];
+  private awardedCounterAttackIds = new Set<string>();
+  private arenaBounds!: ArenaBounds;
+
+  private fx!: ArenaFx;
   private coverGraphics!: Phaser.GameObjects.Graphics;
   private telegraphGraphics!: Phaser.GameObjects.Graphics;
+  private switchProgressGraphics!: Phaser.GameObjects.Graphics;
   private playerSprite!: Phaser.GameObjects.Sprite;
   private playerShadow!: Phaser.GameObjects.Ellipse;
   private linaSprite!: Phaser.GameObjects.Sprite;
@@ -77,16 +90,25 @@ export class RescueScene extends Phaser.Scene {
   private maiSprite!: Phaser.GameObjects.Sprite;
   private isshinSprite!: Phaser.GameObjects.Sprite;
   private switchSprite!: Phaser.GameObjects.Arc;
+  private switchHitZone!: Phaser.GameObjects.Zone;
+  private switchLabel!: Phaser.GameObjects.Text;
   private enemySprites = new Map<string, Phaser.GameObjects.Sprite>();
   private enemyShadows = new Map<string, Phaser.GameObjects.Ellipse>();
   private bulletGraphics = new Map<string, Phaser.GameObjects.Arc>();
   private bulletSeq = 0;
+
+  private reflexTint!: Phaser.GameObjects.Rectangle;
   private hitFlash!: Phaser.GameObjects.Rectangle;
   private hitText!: Phaser.GameObjects.Text;
   private hudText!: Phaser.GameObjects.Text;
+  private objectiveText!: Phaser.GameObjects.Text;
+  private toastText!: Phaser.GameObjects.Text;
+  private toastUntil = 0;
   private counterText!: Phaser.GameObjects.Text;
   private counterRing!: Phaser.GameObjects.Graphics;
   private pauseOverlay!: Phaser.GameObjects.Rectangle;
+  private pauseTitle!: Phaser.GameObjects.Text;
+  private pauseHint!: Phaser.GameObjects.Text;
   private gameOverPanel!: Phaser.GameObjects.Container;
   private endingPanel!: Phaser.GameObjects.Container;
   private teachingCard!: Phaser.GameObjects.Container;
@@ -107,10 +129,10 @@ export class RescueScene extends Phaser.Scene {
   // Teaching / counter
   private counterTaught = false;
   private teachingPaused = false;
+  private teachingOpenedAt = 0;
 
-  // Pause / focus-loss / defeat freezing.
-  private pausedOffset = 0;
-  private pausedAt: number | null = null;
+  // Unified simulation clock (completely frozen on pause / teaching / defeat / cutscene)
+  private simNow = 0;
   private paused = false;
   private defeated = false;
   private ended = false;
@@ -119,6 +141,7 @@ export class RescueScene extends Phaser.Scene {
   private hitFlashEndTime = 0;
   private hitTextEndTime = 0;
   private isshinCoverFireTime = 0;
+  private lastGhostTime = 0;
 
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
 
@@ -126,24 +149,20 @@ export class RescueScene extends Phaser.Scene {
 
   init(data: { state?: RunState; difficulty?: Difficulty } = {}): void {
     this.difficulty = data.difficulty ?? 'story';
-    // Entry snapshot: retain current health across beats. A retry passes a state
-    // already reset by restartRescue (full health, counterUnlocked false).
     this.state = data.state ?? newRun(this.difficulty);
-    // A failed rescue that was saved must not be resurrected on reload.
+    this.defeated = false;
+    this.ended = false;
+    this.paused = false;
+    this.teachingPaused = false;
+    this.simNow = 0;
     if (this.state.rescueStatus === 'failed') {
       this.defeated = true;
     } else if (this.state.rescueStatus === 'not-started') {
-      // Entering the mission marks it active so a later lethal hit is recorded
-      // as a failed rescue (and reloads as Game Over) rather than left un-started.
       this.state = { ...this.state, rescueStatus: 'active' };
     }
   }
 
-  private now(time: number): number { return time - this.pausedOffset; }
-
   preload() {
-    // Load rescue sprites
-    // Player (K) - use interaction sheet
     if (!this.textures.exists('sprite-k')) {
       this.load.spritesheet('sprite-k', '/assets/characters/k/k-interaction-sprites-48px.png', {
         frameWidth: 48, frameHeight: 48,
@@ -157,21 +176,17 @@ export class RescueScene extends Phaser.Scene {
         });
       }
     }
-    // Mai interaction sheet
     if (!this.textures.exists('sprite-mai')) {
       this.load.spritesheet('sprite-mai', '/assets/characters/mai/mai-interaction-sprites-48px.png', {
         frameWidth: 48, frameHeight: 48,
       });
     }
-    // Isshin interaction sheet
     if (!this.textures.exists('sprite-isshin')) {
       this.load.spritesheet('sprite-isshin', '/assets/characters/isshin/isshin-interaction-sprites-48px.png', {
         frameWidth: 48, frameHeight: 48,
       });
     }
-    // Scout sprites
-    const scoutStates = ['idle', 'windup', 'recoil', 'disabled'];
-    for (const state of scoutStates) {
+    for (const state of ['idle', 'windup', 'recoil', 'disabled']) {
       const key = `scout-${state}`;
       if (!this.textures.exists(key)) {
         this.load.spritesheet(key, `/assets/characters/scout/scout-${state}-4dir-48px.png`, {
@@ -179,9 +194,7 @@ export class RescueScene extends Phaser.Scene {
         });
       }
     }
-    // Rusher sprites
-    const rusherStates = ['idle', 'windup', 'charge', 'recovery'];
-    for (const state of rusherStates) {
+    for (const state of ['idle', 'windup', 'charge', 'recovery']) {
       const key = `rusher-${state}`;
       if (!this.textures.exists(key)) {
         this.load.spritesheet(key, `/assets/characters/rusher/rusher-${state}-4dir-48px.png`, {
@@ -189,26 +202,27 @@ export class RescueScene extends Phaser.Scene {
         });
       }
     }
-    // Lina sprites
+    for (let i = 1; i <= 4; i++) {
+      const key = `muzzle-flash-${i.toString().padStart(2, '0')}`;
+      if (!this.textures.exists(key)) {
+        this.load.image(key, `/assets/effects/muzzle-flash-${i.toString().padStart(2, '0')}-48px.png`);
+      }
+    }
     if (!this.textures.exists('lina-idle')) {
       this.load.image('lina-idle', '/assets/characters/lina/lina-idle-48px.png');
     }
     if (!this.textures.exists('lina-shelter')) {
       this.load.image('lina-shelter', '/assets/characters/lina/lina-shelter-48px.png');
     }
-    // Chapter one ending backdrop behind the ending panel.
     if (!this.textures.exists('bg-ending')) {
       this.load.image('bg-ending', '/assets/backgrounds/chapter-one-ending.png');
     }
-    // Counter tutorial teaching diagram
     if (!this.textures.exists('counter-tutorial')) {
       this.load.image('counter-tutorial', '/assets/backgrounds/counter-unlocked-tutorial.png');
     }
-    // Service lane / alley arena backdrop
     if (!this.textures.exists('bg-rescue')) {
       this.load.image('bg-rescue', '/assets/backgrounds/twilight-ruins-warehouse-yard.png');
     }
-    // Breach machine
     if (!this.textures.exists('breach-machine')) {
       this.load.spritesheet('breach-machine', '/assets/characters/breach-machine/breach-machine-48px-4x4.png', {
         frameWidth: 48, frameHeight: 48,
@@ -221,10 +235,33 @@ export class RescueScene extends Phaser.Scene {
     const width = cam.width;
     const height = cam.height;
 
-    this.beatStartTime = this.now(performance.now());
+    this.arenaBounds = { minX: 28, maxX: width - 28, minY: 146, maxY: height - 56 };
+    this.simNow = 0;
+    this.fireCooldown = 0;
+    this.hitFlashEndTime = 0;
+    this.hitTextEndTime = 0;
+    this.isshinCoverFireTime = 0;
+    this.lastGhostTime = 0;
+    this.toastUntil = 0;
+    this.enemies = [];
+    this.bullets = [];
+    this.enemySprites.clear();
+    this.enemyShadows.clear();
+    this.bulletGraphics.clear();
+    this.awardedCounterAttackIds.clear();
+    this.damage = new DamageSystem();
+    this.player = new Player();
+
+    // Optional dev query override for inspecting a specific rescue beat cleanly.
+    const params = new URLSearchParams(window.location.search);
+    const devBeat = params.get('rescue_beat');
+    const devBeatIdx = devBeat ? BEAT_ORDER.indexOf(devBeat as RescueBeatId) : -1;
+    this.beatIndex = devBeatIdx >= 0 ? devBeatIdx : 0;
+
+    this.beatStartTime = this.simNow;
     const beat = this.currentBeat();
     this.holdSecondsLeft = beat.holdSeconds ?? 0;
-    this.holdTimerEndTime = this.now(performance.now()) + (beat.holdSeconds ?? 0) * 1000;
+    this.holdTimerEndTime = this.simNow + (beat.holdSeconds ?? 0) * 1000;
     this.holdExpired = false;
     this.spawnQueue = [...beat.spawns];
     this.nextSpawnIndex = 0;
@@ -242,23 +279,29 @@ export class RescueScene extends Phaser.Scene {
 
     // Input
     this.keys = this.input.keyboard!.addKeys(
-      'W,A,S,D,UP,LEFT,DOWN,RIGHT,SPACE,ESC,E',
+      'W,A,S,D,UP,LEFT,DOWN,RIGHT,SPACE,ESC,E,R',
     ) as Record<string, Phaser.Input.Keyboard.Key>;
-    this.input.keyboard!.addCapture(['UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE', 'ESC', 'E']);
-    const onPointerDown = () => this.tryFire();
+    this.input.keyboard!.addCapture(['UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE', 'ESC', 'E', 'R']);
+
+    const onPointerDown = (_pointer: Phaser.Input.Pointer, currentlyOver: Phaser.GameObjects.GameObject[]) => {
+      if (currentlyOver.length > 0) return; // Don't misfire when clicking switch or UI panels
+      audio.unlock();
+      this.tryFire();
+    };
     this.input.on('pointerdown', onPointerDown);
 
     document.body.dataset.scene = 'rescue';
+    document.body.dataset.beat = this.beatId();
 
     // Service lane arena backdrop
     if (this.textures.exists('bg-rescue')) {
       this.add.image(width / 2, height / 2, 'bg-rescue')
         .setDisplaySize(width, height)
         .setDepth(-1)
-        .setAlpha(0.88);
+        .setAlpha(0.92);
     }
 
-    // Subtle tactical ground outlines aligned to the painted cover props
+    // Subtle tactical ground outlines aligned to painted cover props
     this.coverGraphics = this.add.graphics().setDepth(5);
     this.coverGraphics.fillStyle(0x0f172a, 0.03);
     this.coverGraphics.lineStyle(1, 0x94a3b8, 0.14);
@@ -267,14 +310,17 @@ export class RescueScene extends Phaser.Scene {
       this.coverGraphics.strokeRect(c.x, c.y, c.w, c.h);
     }
 
-    // Player (readable character scale decoupled from collision radius)
+    this.fx = new ArenaFx(this);
+
+    this.reflexTint = this.add.rectangle(0, 0, width, height, 0xfde047, 0.08)
+      .setOrigin(0).setDepth(92).setVisible(false);
+
+    // Player
     this.player.x = PLAYER_START.x;
     this.player.y = PLAYER_START.y;
-    this.playerShadow = this.add.ellipse(this.player.x, this.player.y + 18, 24, 9, 0x05070a, 0.48)
-      .setDepth(46);
-    this.playerSprite = this.add.sprite(
-      this.player.x, this.player.y, 'sprite-k', 0,
-    ).setDisplaySize(SPRITE_DISPLAY.combatPlayer, SPRITE_DISPLAY.combatPlayer)
+    this.playerShadow = this.add.ellipse(this.player.x, this.player.y + 18, 24, 9, 0x05070a, 0.48).setDepth(46);
+    this.playerSprite = this.add.sprite(this.player.x, this.player.y, 'sprite-k', 0)
+      .setDisplaySize(SPRITE_DISPLAY.combatPlayer, SPRITE_DISPLAY.combatPlayer)
       .setOrigin(0.5, 0.62)
       .setDepth(50);
 
@@ -284,7 +330,7 @@ export class RescueScene extends Phaser.Scene {
         this.anims.create({
           key: animKey,
           frames: this.anims.generateFrameNumbers(animKey, { start: 0, end: 3 }),
-          frameRate: 9,
+          frameRate: 10,
           repeat: -1,
         });
       }
@@ -297,12 +343,10 @@ export class RescueScene extends Phaser.Scene {
       });
     }
 
-    // Lina behind shelter cover (single-pose 48px sprite scaled cleanly)
-    this.linaShadow = this.add.ellipse(this.lina.x, this.lina.y + 16, 22, 8, 0x05070a, 0.45)
-      .setDepth(46);
-    this.linaSprite = this.add.sprite(
-      this.lina.x, this.lina.y, 'lina-shelter',
-    ).setDisplaySize(SPRITE_DISPLAY.rescueLina, SPRITE_DISPLAY.rescueLina)
+    // Lina behind shelter cover
+    this.linaShadow = this.add.ellipse(this.lina.x, this.lina.y + 16, 22, 8, 0x05070a, 0.45).setDepth(46);
+    this.linaSprite = this.add.sprite(this.lina.x, this.lina.y, 'lina-shelter')
+      .setDisplaySize(SPRITE_DISPLAY.rescueLina, SPRITE_DISPLAY.rescueLina)
       .setOrigin(0.5, 0.62)
       .setDepth(49);
     this.linaLabel = this.add.text(this.lina.x, this.lina.y + 22, 'Lina', {
@@ -316,9 +360,8 @@ export class RescueScene extends Phaser.Scene {
 
     // Mai waiting in the lit safe alcove
     this.add.ellipse(MAI_MARKER.x, MAI_MARKER.y + 18, 24, 9, 0x05070a, 0.48).setDepth(46);
-    this.maiSprite = this.add.sprite(
-      MAI_MARKER.x, MAI_MARKER.y, 'sprite-mai', 0,
-    ).setDisplaySize(SPRITE_DISPLAY.rescueMai, SPRITE_DISPLAY.rescueMai)
+    this.maiSprite = this.add.sprite(MAI_MARKER.x, MAI_MARKER.y, 'sprite-mai', 0)
+      .setDisplaySize(SPRITE_DISPLAY.rescueMai, SPRITE_DISPLAY.rescueMai)
       .setOrigin(0.5, 0.62)
       .setDepth(49);
     this.add.text(MAI_MARKER.x, MAI_MARKER.y + 24, 'Mai · Safe', {
@@ -332,9 +375,8 @@ export class RescueScene extends Phaser.Scene {
 
     // Isshin behind the sandbag barricade providing covering fire
     this.add.ellipse(ISSHIN_POS.x, ISSHIN_POS.y + 18, 24, 9, 0x05070a, 0.48).setDepth(46);
-    this.isshinSprite = this.add.sprite(
-      ISSHIN_POS.x, ISSHIN_POS.y, 'sprite-isshin', 0,
-    ).setDisplaySize(SPRITE_DISPLAY.rescueIsshin, SPRITE_DISPLAY.rescueIsshin)
+    this.isshinSprite = this.add.sprite(ISSHIN_POS.x, ISSHIN_POS.y, 'sprite-isshin', 0)
+      .setDisplaySize(SPRITE_DISPLAY.rescueIsshin, SPRITE_DISPLAY.rescueIsshin)
       .setOrigin(0.5, 0.62)
       .setDepth(48);
     this.add.text(ISSHIN_POS.x, ISSHIN_POS.y + 24, 'Isshin', {
@@ -346,119 +388,134 @@ export class RescueScene extends Phaser.Scene {
       padding: { x: 4, y: 1 },
     }).setOrigin(0.5, 0).setDepth(55);
 
-    // Extraction switch beacon aligned to the glowing switch on the gate pillar
-    this.switchSprite = this.add
-      .circle(SWITCH_POS.x, SWITCH_POS.y, 15, 0xe9b45c, 0.22)
-      .setStrokeStyle(2, 0xfde047, 0.95)
+    // Extraction gate switch beacon — supports BOTH E key AND direct mouse click!
+    this.switchSprite = this.add.circle(SWITCH_POS.x, SWITCH_POS.y, 16, 0x475569, 0.22)
+      .setStrokeStyle(2, 0x94a3b8, 0.7)
       .setDepth(47);
     this.tweens.add({
       targets: this.switchSprite,
-      scale: 1.18,
-      alpha: 0.48,
-      duration: 850,
+      scale: 1.15,
+      duration: 820,
       yoyo: true,
       repeat: -1,
       ease: 'Sine.easeInOut',
     });
-    this.add.text(SWITCH_POS.x, SWITCH_POS.y - 20, 'E · Gate switch', {
+    this.switchProgressGraphics = this.add.graphics().setDepth(56);
+    this.switchLabel = this.add.text(SWITCH_POS.x, SWITCH_POS.y - 22, 'Gate locked', {
       fontFamily: 'Segoe UI, Arial, sans-serif',
       fontSize: '10px',
       fontStyle: 'bold',
-      color: '#fde047',
-      backgroundColor: '#0d1117e0',
-      padding: { x: 4, y: 1 },
-    }).setOrigin(0.5, 1).setDepth(55);
+      color: '#94a3b8',
+      backgroundColor: '#0d1117e8',
+      padding: { x: 5, y: 2 },
+    }).setOrigin(0.5, 1).setDepth(57);
 
-    // Telegraph overlay.
-    this.telegraphGraphics = this.add.graphics();
-    this.telegraphGraphics.setDepth(45);
+    // Interactive click target over the gate switch pillar (consumes click so it never misfires pistol)
+    this.switchHitZone = this.add.zone(SWITCH_POS.x, SWITCH_POS.y, 58, 58)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(58);
+    this.switchHitZone.on('pointerdown', () => {
+      if (this.teachingPaused || this.paused || this.defeated || this.ended) return;
+      audio.unlock();
+      this.trySwitch();
+    });
 
-    // Hit feedback (never color-only).
-    this.hitFlash = this.add
-      .rectangle(0, 0, width, height, 0xffffff, 0)
+    this.telegraphGraphics = this.add.graphics().setDepth(45);
+
+    // Hit feedback
+    this.hitFlash = this.add.rectangle(0, 0, width, height, 0xffffff, 0)
       .setOrigin(0).setDepth(105).setVisible(false);
-    this.hitText = this.add
-      .text(width / 2, height / 2 - 70, 'HIT', {
-        fontSize: '28px', fontFamily: 'monospace', color: '#ffffff',
-      })
-      .setOrigin(0.5).setDepth(110).setVisible(false);
+    this.hitText = this.add.text(width / 2, height / 2 - 70, 'HIT', {
+      fontSize: '28px', fontFamily: 'monospace', color: '#ffffff',
+      stroke: '#090d14', strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(110).setVisible(false);
 
-    // HUD
-    this.hudText = this.add
-      .text(16, 12, '', { fontSize: '14px', fontFamily: 'monospace', color: '#e2e8f0' })
-      .setDepth(100);
-    this.counterText = this.add
-      .text(width / 2, 34, '', {
-        fontSize: '20px', fontFamily: 'monospace', color: '#fde047',
-        stroke: '#000000', strokeThickness: 4,
-      })
-      .setOrigin(0.5).setDepth(100).setVisible(false);
+    // HUD top bar + live beat objective strip
+    this.add.rectangle(0, 0, width, 34, 0x090d14, 0.86).setOrigin(0).setDepth(99);
+    this.hudText = this.add.text(14, 8, '', {
+      fontSize: '13px', fontFamily: 'monospace', color: '#e2e8f0',
+    }).setDepth(100);
+    this.objectiveText = this.add.text(width / 2, 42, '', {
+      fontFamily: 'Segoe UI, Arial, sans-serif',
+      fontSize: '12px',
+      fontStyle: 'bold',
+      color: '#fde68a',
+      backgroundColor: '#0d1117e6',
+      padding: { x: 10, y: 4 },
+    }).setOrigin(0.5, 0).setDepth(100);
+
+    this.toastText = this.add.text(width / 2, height - 26, '', {
+      fontFamily: 'Segoe UI, Arial, sans-serif',
+      fontSize: '12px',
+      fontStyle: 'bold',
+      color: '#fef08a',
+      backgroundColor: '#0d1117f0',
+      padding: { x: 10, y: 4 },
+    }).setOrigin(0.5, 1).setDepth(102).setVisible(false);
+
+    this.counterText = this.add.text(width / 2, 72, '', {
+      fontSize: '18px', fontFamily: 'monospace', fontStyle: 'bold', color: '#fde047',
+      stroke: '#000000', strokeThickness: 4,
+    }).setOrigin(0.5).setDepth(100).setVisible(false);
     this.counterRing = this.add.graphics().setDepth(52);
 
-    // Pause overlay
-    this.pauseOverlay = this.add
-      .rectangle(0, 0, width, height, 0x000000, 0.55)
-      .setOrigin(0).setDepth(120).setVisible(false);
-    this.pauseOverlay.setScrollFactor(0);
-    this.add
-      .text(width / 2, height / 2 - 20, 'PAUSED', {
-        fontSize: '28px', fontFamily: 'monospace', color: '#ffffff',
-      }).setOrigin(0.5).setDepth(121).setVisible(false).setScrollFactor(0);
-    this.add
-      .text(width / 2, height / 2 + 12, 'Esc · Resume', {
-        fontSize: '16px', fontFamily: 'monospace', color: '#cbd5e1',
-      }).setOrigin(0.5).setDepth(121).setVisible(false).setScrollFactor(0);
+    // Pause overlay (properly stores title/hint refs!)
+    this.pauseOverlay = this.add.rectangle(0, 0, width, height, 0x000000, 0.58)
+      .setOrigin(0).setDepth(120).setVisible(false).setScrollFactor(0);
+    this.pauseTitle = this.add.text(width / 2, height / 2 - 18, 'PAUSED', {
+      fontSize: '28px', fontFamily: 'monospace', color: '#ffffff',
+    }).setOrigin(0.5).setDepth(121).setVisible(false).setScrollFactor(0);
+    this.pauseHint = this.add.text(width / 2, height / 2 + 16, 'Esc · Resume', {
+      fontSize: '15px', fontFamily: 'monospace', color: '#cbd5e1',
+    }).setOrigin(0.5).setDepth(121).setVisible(false).setScrollFactor(0);
 
     // Teaching card (shown once during the hold after the first perfect dodge).
-    this.teachingCard = this.add.container(width / 2, height / 2);
-    this.teachingCard.setDepth(130);
-    this.teachingCard.setVisible(false);
-    const cardBg = this.add.rectangle(0, 0, 480, 260, 0x111827, 0.95)
-      .setStrokeStyle(2, 0xfde047);
-    const cardTitle = this.add.text(0, -95, 'COUNTER UNLOCKED', {
-      fontSize: '18px', fontFamily: 'monospace', color: '#fde047',
+    this.teachingCard = this.add.container(width / 2, height / 2).setDepth(130).setVisible(false);
+    const cardBg = this.add.rectangle(0, 0, 480, 266, 0x111827, 0.96).setStrokeStyle(2, 0xfde047);
+    const cardTitle = this.add.text(0, -100, 'REFLEX COUNTER UNLOCKED', {
+      fontSize: '18px', fontFamily: 'monospace', fontStyle: 'bold', color: '#fde047',
     }).setOrigin(0.5);
-    const cardBody = this.add.text(0, -65, 'Dodge through a near hit. When COUNTER appears, click to fire into the opening.', {
-      fontSize: '13px', fontFamily: 'monospace', color: '#e2e8f0', align: 'center',
-    }).setOrigin(0.5).setLineSpacing(3);
+    const cardBody = this.add.text(
+      0, -68,
+      'Dodge past an incoming hit to trigger Bullet-Time.\nClick during REFLEX COUNTER to fire a piercing Counter Rail!',
+      { fontSize: '12px', fontFamily: 'Segoe UI, Arial, sans-serif', color: '#e2e8f0', align: 'center' },
+    ).setOrigin(0.5).setLineSpacing(3);
     const cardItems: Phaser.GameObjects.GameObject[] = [cardBg, cardTitle, cardBody];
     if (this.textures.exists('counter-tutorial')) {
-      const tutImg = this.add.image(0, 15, 'counter-tutorial')
+      const tutImg = this.add.image(0, 16, 'counter-tutorial')
         .setDisplaySize(420, 110)
         .setOrigin(0.5);
       cardItems.push(tutImg);
     }
-    const cardHint = this.add.text(0, 105, 'Click anywhere to continue', {
-      fontSize: '13px', fontFamily: 'monospace', color: '#cbd5e1',
+    const cardHint = this.add.text(0, 108, 'Click, Space, or E to continue', {
+      fontSize: '12px', fontFamily: 'monospace', color: '#fde68a',
     }).setOrigin(0.5);
     cardItems.push(cardHint);
     this.teachingCard.add(cardItems);
-    this.teachingCard.setSize(480, 260);
-    this.teachingCard.setInteractive({ useHandCursor: true, hitArea: new Phaser.Geom.Rectangle(-240, -130, 480, 260), hitAreaCallback: Phaser.Geom.Rectangle.Contains });
+    this.teachingCard.setSize(480, 266);
+    this.teachingCard.setInteractive({
+      useHandCursor: true,
+      hitArea: new Phaser.Geom.Rectangle(-240, -133, 480, 266),
+      hitAreaCallback: Phaser.Geom.Rectangle.Contains,
+    });
     this.teachingCard.on('pointerdown', () => this.dismissTeaching());
 
     // Game Over overlay
-    this.gameOverPanel = this.add.container(width / 2, height / 2);
-    this.gameOverPanel.setDepth(130);
-    this.gameOverPanel.setVisible(false);
-    const goBg = this.add.rectangle(0, 0, 360, 180, 0x111827, 0.95).setStrokeStyle(2, 0xef4444);
+    this.gameOverPanel = this.add.container(width / 2, height / 2).setDepth(130).setVisible(false);
+    const goBg = this.add.rectangle(0, 0, 360, 180, 0x111827, 0.96).setStrokeStyle(2, 0xef4444);
     const goTitle = this.add.text(0, -60, 'GAME OVER', {
       fontSize: '24px', fontFamily: 'monospace', color: '#ef4444',
     }).setOrigin(0.5);
     const goHint = this.add.text(0, -20, 'K couldn\'t make it through. The attempt failed.', {
       fontSize: '14px', fontFamily: 'monospace', color: '#e2e8f0',
     }).setOrigin(0.5).setWordWrapWidth(320);
-    const restartBtn = this.add
-      .rectangle(0, 24, 220, 36, 0x4cc9f0)
-      .setInteractive({ useHandCursor: true })
-      .setDepth(131);
+    const restartBtn = this.add.rectangle(0, 24, 220, 36, 0x4cc9f0)
+      .setInteractive({ useHandCursor: true }).setDepth(131);
     const restartBtnText = this.add.text(0, 24, 'Restart rescue mission', {
       fontSize: '15px', fontFamily: 'monospace', color: '#0f172a',
     }).setOrigin(0.5).setDepth(132);
-    const returnBtn = this.add
-      .rectangle(0, 72, 220, 36, 0x4b5563)
-      .setInteractive({ useHandCursor: true })
-      .setDepth(131);
+    const returnBtn = this.add.rectangle(0, 72, 220, 36, 0x4b5563)
+      .setInteractive({ useHandCursor: true }).setDepth(131);
     const returnBtnText = this.add.text(0, 72, 'Return to title', {
       fontSize: '15px', fontFamily: 'monospace', color: '#ffffff',
     }).setOrigin(0.5).setDepth(132);
@@ -466,10 +523,8 @@ export class RescueScene extends Phaser.Scene {
     returnBtn.on('pointerdown', () => this.returnToTitle());
     this.gameOverPanel.add([goBg, goTitle, goHint, restartBtn, restartBtnText, returnBtn, returnBtnText]);
 
-    // Ending panel (shown when Lina reaches safety).
-    this.endingPanel = this.add.container(width / 2, height / 2);
-    this.endingPanel.setDepth(130);
-    this.endingPanel.setVisible(false);
+    // Ending panel
+    this.endingPanel = this.add.container(width / 2, height / 2).setDepth(130).setVisible(false);
     const endBg = this.add.rectangle(0, 0, 520, 310, 0x111827, 0.96).setStrokeStyle(2, 0x22d3ee);
     const endTitle = this.add.text(0, -120, 'WANT - Chapter One: The Wrong Person', {
       fontSize: '18px', fontFamily: 'monospace', color: '#22d3ee',
@@ -477,9 +532,11 @@ export class RescueScene extends Phaser.Scene {
     const endLine = this.add.text(0, -85, '“You were not the person they came for.\nYou were the person who stayed.”', {
       fontSize: '15px', fontFamily: 'monospace', color: '#fde047', align: 'center',
     }).setOrigin(0.5);
-    const endQuotes = this.add.text(0, -15, 'Lina: “I thought nobody heard me.”  K: “I almost kept walking.”\nLina: “But you didn’t.”\n\nMai: “You’re who went back for her. I’m sorry for what I said.”\nIsshin: “Today you gave someone a way home. We can start there.”', {
-      fontSize: '12px', fontFamily: 'monospace', color: '#cbd5e1', align: 'center',
-    }).setOrigin(0.5).setLineSpacing(3);
+    const endQuotes = this.add.text(
+      0, -15,
+      'Lina: “I thought nobody heard me.”  K: “I almost kept walking.”\nLina: “But you didn’t.”\n\nMai: “You’re who went back for her. I’m sorry for what I said.”\nIsshin: “Today you gave someone a way home. We can start there.”',
+      { fontSize: '12px', fontFamily: 'monospace', color: '#cbd5e1', align: 'center' },
+    ).setOrigin(0.5).setLineSpacing(3);
     const endStatus = this.add.text(0, 70, 'Lina safely in camp. girl-rescued · Health fully restored.', {
       fontSize: '13px', fontFamily: 'monospace', color: '#86efac', align: 'center',
     }).setOrigin(0.5);
@@ -489,21 +546,19 @@ export class RescueScene extends Phaser.Scene {
     this.endingPanel.add([endBg, endTitle, endLine, endQuotes, endStatus, endFinish]);
     this.endingPanel.setSize(520, 310);
     this.endingPanel.on('pointerdown', () => this.returnToTitle());
-    this.endingPanel.setInteractive({ useHandCursor: true, hitArea: new Phaser.Geom.Rectangle(-260, -155, 520, 310), hitAreaCallback: Phaser.Geom.Rectangle.Contains });
+    this.endingPanel.setInteractive({
+      useHandCursor: true,
+      hitArea: new Phaser.Geom.Rectangle(-260, -155, 520, 310),
+      hitAreaCallback: Phaser.Geom.Rectangle.Contains,
+    });
 
-    // Chapter one ending backdrop behind the ending panel.
-    this.endingBackground = this.add.image(width / 2, height / 2, 'bg-ending').setOrigin(0.5);
-    this.endingBackground
-      .setDisplaySize(this.cameras.main.width, this.cameras.main.height)
-      .setDepth(125)
-      .setVisible(false);
+    this.endingBackground = this.add.image(width / 2, height / 2, 'bg-ending').setOrigin(0.5)
+      .setDisplaySize(width, height).setDepth(125).setVisible(false);
 
     if (this.defeated) {
       this.showGameOver();
       return;
     }
-
-    this.spawnBeatEnemies(this.now(performance.now()));
 
     const onGameHidden = () => this.setPaused(true);
     const onGameVisible = () => this.setPaused(false, true);
@@ -517,6 +572,7 @@ export class RescueScene extends Phaser.Scene {
       this.input.off('pointerdown', onPointerDown);
     });
 
+    this.syncSwitchVisuals();
     this.updateHUD();
   }
 
@@ -526,28 +582,45 @@ export class RescueScene extends Phaser.Scene {
     return rescueBeats[this.beatIndex];
   }
 
-  private beatId(): BeatId {
+  private beatId(): RescueBeatId {
     return BEAT_ORDER[this.beatIndex];
   }
 
-  private spawnBeatEnemies(now: number) {
-    const beat = this.currentBeat();
-    for (const s of beat.spawns) {
-      if (s.timeMs === 0) this.spawnEnemy(s.kind, s.x, s.y, now);
-    }
+  private showToast(message: string, durationMs = 2400): void {
+    this.toastText.setText(message).setVisible(true);
+    this.toastUntil = performance.now() + durationMs;
   }
 
-  private spawnEnemy(kind: EnemyKind, x: number, y: number, now: number) {
-    if (this.enemies.filter((e) => e.phase !== 'dead').length >= this.currentBeat().maxActive) return;
+  private spawnEnemy(kind: EnemyKind, x: number, y: number, now: number): boolean {
+    if (this.enemies.filter((e) => e.phase !== 'dead').length >= this.currentBeat().maxActive) {
+      return false;
+    }
     this.enemies.push(makeEnemy(kind, x, y, this.difficulty, now));
+    return true;
   }
 
   // ---------- main loop ----------
 
-  update(time: number, dt: number) {
-    if (this.teachingPaused || this.defeated || this.ended || isCutsceneActive()) return;
+  update(_time: number, rawDt: number) {
+    if (this.defeated || this.ended || isCutsceneActive()) return;
 
-    // Esc toggles pause even while currently paused.
+    // Update real-time toast expiry even if paused
+    if (this.toastText.visible && performance.now() >= this.toastUntil) {
+      this.toastText.setVisible(false);
+    }
+
+    // Teaching card accepts Space or E dismissal (after a brief 350ms guard)
+    if (this.teachingPaused || this.teachingCard.visible) {
+      if (
+        performance.now() - this.teachingOpenedAt > 350 &&
+        (Phaser.Input.Keyboard.JustDown(this.keys.SPACE) || Phaser.Input.Keyboard.JustDown(this.keys.E))
+      ) {
+        this.dismissTeaching();
+      }
+      return;
+    }
+
+    // Esc toggles pause
     if (Phaser.Input.Keyboard.JustDown(this.keys.ESC)) {
       this.setPaused(!this.paused);
       return;
@@ -555,12 +628,14 @@ export class RescueScene extends Phaser.Scene {
 
     if (this.paused) return;
 
-    const effNow = this.now(time);
+    const clampedDt = Math.min(rawDt, 50);
+    const inReflex = this.player.canCounter(this.simNow);
+    const simDt = inReflex ? clampedDt * REFLEX_TIME_SCALE : clampedDt;
+    this.simNow += simDt;
+    const dtSec = simDt / 1000;
+    const realDtSec = clampedDt / 1000;
 
-    // Teaching card: click to dismiss and unlock the counter.
-    if (this.teachingCard.visible) return;
-
-    // Input: continuous movement, normalized diagonals.
+    // Movement
     let dx = 0;
     let dy = 0;
     if (this.keys.W.isDown || this.keys.UP.isDown) dy = -1;
@@ -569,103 +644,156 @@ export class RescueScene extends Phaser.Scene {
     else if (this.keys.D.isDown || this.keys.RIGHT.isDown) dx = 1;
     this.player.setDirection(dx, dy);
 
-    // Mouse-world aim.
+    // Mouse-world aim
     const p = this.input.activePointer;
     this.player.setAim(p.worldX - this.player.x, p.worldY - this.player.y);
 
-    // Space dodge.
-    if (Phaser.Input.Keyboard.JustDown(this.keys.SPACE) && this.player.canDodge(effNow)) {
-      this.player.startDodge(effNow);
+    // Space dodge
+    if (Phaser.Input.Keyboard.JustDown(this.keys.SPACE) && this.player.canDodge(this.simNow)) {
+      audio.unlock();
+      this.player.startDodge(this.simNow);
+      audio.playCue('ui-confirm');
     }
 
-    // E: extraction switch (only in extraction beat, in range).
+    // R active snap-reload
+    if (Phaser.Input.Keyboard.JustDown(this.keys.R)) {
+      audio.unlock();
+      const res = this.player.triggerReload(this.simNow);
+      if (res === 'snap') {
+        audio.playCue('resolve');
+        this.fx.callout(this.player.x, this.player.y - 30, 'SNAP RELOAD!', '#fde047', true);
+        this.fx.sparks(this.player.x, this.player.y, 0xfde047, 8, 26);
+      } else if (res === 'started') {
+        audio.playCue('metal-drop');
+      }
+    }
+
+    // E: gate switch interaction
     if (Phaser.Input.Keyboard.JustDown(this.keys.E)) {
+      audio.unlock();
       this.trySwitch();
     }
 
-    this.player.tickDodge(effNow);
-    this.player.updateMovement(dt / 1000, COVER);
+    this.player.tickDodge(this.simNow);
+    this.player.tickReload(this.simNow);
+    this.player.updateMovement(dtSec, COVER);
     this.clampPlayer();
 
-    if (this.fireCooldown > 0) this.fireCooldown = Math.max(0, this.fireCooldown - dt);
+    if (this.player.dodging && this.simNow - this.lastGhostTime >= 42) {
+      this.lastGhostTime = this.simNow;
+      this.fx.dodgeGhost(
+        this.player.x,
+        this.player.y,
+        this.playerSprite.texture.key,
+        this.playerSprite.frame.name,
+        SPRITE_DISPLAY.combatPlayer,
+        inReflex,
+      );
+    }
 
-    // Enemy AI + scheduled spawns from the fixed queue.
+    if (this.fireCooldown > 0) this.fireCooldown = Math.max(0, this.fireCooldown - clampedDt);
+
+    // Enemy tactical AI
     const newBullets: {
       x: number; y: number; vx: number; vy: number; speed: number;
       damage: number; attackId: string | null;
     }[] = [];
     for (const e of this.enemies) {
       if (e.phase === 'dead') continue;
-      for (const b of updateEnemy(e, { x: this.player.x, y: this.player.y, radius: PLAYER_RADIUS }, effNow, dt / 1000)) {
-        newBullets.push(b);
+      const res = updateEnemy(
+        e,
+        { x: this.player.x, y: this.player.y, radius: PLAYER_RADIUS },
+        this.simNow,
+        dtSec,
+        COVER,
+        this.arenaBounds,
+        this.difficulty,
+      );
+      if (res.slammedCover) {
+        audio.playCue('muffled-blast');
+        this.fx.shake(120, 0.008);
+        this.fx.sparks(e.x, e.y, 0xfde047, 10, 34);
+        this.fx.callout(e.x, e.y - 34, 'STAGGERED! 1.5x', '#fde047', true);
       }
+      for (const b of res.bullets) newBullets.push(b);
     }
 
-    // Fixed-queue spawns (beat-relative time).
+    // Fixed-queue spawns: only consume queue entry when a slot is available (never silently drop!)
     while (
       this.nextSpawnIndex < this.spawnQueue.length &&
-      effNow - this.beatStartTime >= this.spawnQueue[this.nextSpawnIndex].timeMs
+      this.simNow - this.beatStartTime >= this.spawnQueue[this.nextSpawnIndex].timeMs
     ) {
-      const s = this.spawnQueue[this.nextSpawnIndex++];
-      this.spawnEnemy(s.kind, s.x, s.y, effNow);
+      const s = this.spawnQueue[this.nextSpawnIndex];
+      if (!this.spawnEnemy(s.kind, s.x, s.y, this.simNow)) break;
+      this.nextSpawnIndex++;
     }
 
-    // Hold-beat timer: when it reaches zero the hold is over and the gate route
-    // is ready; the player still opens the switch in the extraction beat.
-    if (this.beatId() === 'hold' && !this.holdExpired && effNow >= this.holdTimerEndTime) {
+    // Hold-beat timer
+    if (this.beatId() === 'hold' && !this.holdExpired && this.simNow >= this.holdTimerEndTime) {
       this.holdExpired = true;
       this.holdSecondsLeft = 0;
     }
 
-    // Bullets
-    for (const b of this.bullets) updateBullet(b, dt / 1000);
+    // Bullets + cover ricochets
+    for (const b of this.bullets) {
+      updateBullet(b, dtSec);
+      if (!b.hit && bulletHitsCover(b, BULLET_RADIUS, COVER)) {
+        b.hit = true;
+        this.fx.sparks(b.x, b.y, b.owner === 'player' ? 0x94a3b8 : 0xf87171, 5, 18);
+      }
+    }
     for (const b of newBullets) {
+      audio.playCue('gunshot');
       this.bullets.push({
         id: `b-${this.allocBulletId()}`,
-        x: b.x, y: b.y, vx: b.vx, vy: b.vy, speed: b.speed, damage: b.damage,
-        owner: 'enemy', attackId: b.attackId, born: effNow, ttl: BULLET_TTL_MS,
+        x: b.x, y: b.y, prevX: b.x, prevY: b.y,
+        vx: b.vx, vy: b.vy, speed: b.speed, damage: b.damage,
+        owner: 'enemy', attackId: b.attackId, born: this.simNow, ttl: BULLET_TTL_MS,
       });
     }
 
-    this.resolveCollisions(effNow);
+    this.resolveCollisions(this.simNow);
 
-    // A lethal hit ends the attempt immediately. A same-frame milestone must not
-    // advance the ending in favor of death (death wins the race).
+    // Death wins same-frame race over milestones
     if (this.defeated) {
       this.syncGraphics();
-      this.updateHUD(effNow);
+      this.updateHUD();
       return;
     }
 
-    // Isshin scripted covering fire during hold/extraction at readable intervals.
-    if (this.beatId() !== 'alley' && effNow - this.isshinCoverFireTime > 4000) {
+    // Isshin scripted covering fire during hold/extraction
+    if (this.beatId() !== 'alley' && this.simNow - this.isshinCoverFireTime > 3600) {
       const target = this.enemies.find((e) => e.phase !== 'dead');
       if (target) {
-        this.isshinCoverFireTime = effNow;
-        const dx = target.x - ISSHIN_POS.x;
-        const dy = target.y - ISSHIN_POS.y;
-        const len = Math.hypot(dx, dy) || 1;
+        this.isshinCoverFireTime = this.simNow;
+        const dxI = target.x - ISSHIN_POS.x;
+        const dyI = target.y - ISSHIN_POS.y;
+        const len = Math.hypot(dxI, dyI) || 1;
         this.bullets.push({
           id: `b-${this.allocBulletId()}`,
           x: ISSHIN_POS.x, y: ISSHIN_POS.y,
-          vx: dx / len, vy: dy / len, speed: 520, damage: 40,
-          owner: 'player', attackId: null, born: effNow, ttl: BULLET_TTL_MS,
+          prevX: ISSHIN_POS.x, prevY: ISSHIN_POS.y,
+          vx: dxI / len, vy: dyI / len, speed: 560, damage: 22,
+          owner: 'player', attackId: null, born: this.simNow, ttl: BULLET_TTL_MS,
+          isOvercharged: true, hitEnemyIds: [],
         });
+        this.fx.muzzleFlash(ISSHIN_POS.x, ISSHIN_POS.y, dxI / len, dyI / len, false);
+        audio.playCue('gunshot');
       }
     }
 
-    // Lina scripted extraction movement after the gate is open and lane is safe.
-    this.updateLina(effNow);
+    this.updateSwitch(this.simNow);
+    this.updateLina(this.simNow);
 
     this.enemies = this.enemies.filter((e) => e.phase !== 'dead');
-    this.bullets = this.bullets.filter((b) => effNow - b.born < b.ttl && this.inBounds(b));
-
-    this.syncGraphics();
-    this.updateHUD(effNow);
+    this.bullets = this.bullets.filter((b) => !b.hit && this.simNow - b.born < b.ttl && this.inBounds(b));
 
     this.maybeAdvanceBeat();
-    this.maybeEndMission();
-    this.updateSwitch(effNow);
+
+    this.syncGraphics();
+    this.fx.renderFrame(this.player, this.enemies, this.bullets, p.worldX, p.worldY, this.simNow, realDtSec);
+    this.reflexTint.setVisible(this.player.canCounter(this.simNow));
+    this.updateHUD();
 
     if (this.state.health <= 0 && !this.defeated) this.handleDefeat();
   }
@@ -673,56 +801,114 @@ export class RescueScene extends Phaser.Scene {
   private allocBulletId(): number { return ++this.bulletSeq; }
 
   private clampPlayer() {
-    const cam = this.cameras.main;
-    const r = this.player.radius;
-    this.player.x = Math.min(Math.max(this.player.x, r), cam.width - r);
-    this.player.y = Math.min(Math.max(this.player.y, r), cam.height - r);
+    this.player.x = Math.min(Math.max(this.player.x, this.arenaBounds.minX), this.arenaBounds.maxX);
+    this.player.y = Math.min(Math.max(this.player.y, this.arenaBounds.minY), this.arenaBounds.maxY);
   }
 
   private tryFire() {
     if (this.teachingPaused || this.paused || this.defeated || this.ended) return;
-    if (this.fireCooldown > 0) return;
+    if (this.fireCooldown > 0 && !this.player.canCounter(this.simNow)) return;
+    if (!this.player.canFire(this.simNow)) {
+      if (this.player.reloading) {
+        const res = this.player.triggerReload(this.simNow);
+        if (res === 'snap') {
+          audio.playCue('resolve');
+          this.fx.callout(this.player.x, this.player.y - 30, 'SNAP RELOAD!', '#fde047', true);
+          this.fx.sparks(this.player.x, this.player.y, 0xfde047, 8, 26);
+        }
+      }
+      return;
+    }
     this.fireCooldown = FIRE_COOLDOWN_MS;
-    const shot = this.player.fireBullet(this.player.x, this.player.y, this.now(performance.now()));
+    const shot = this.player.fireBullet(this.player.x, this.player.y, this.simNow);
     this.bullets.push({
       id: `b-${this.allocBulletId()}`,
-      x: shot.x, y: shot.y, vx: shot.vx, vy: shot.vy, speed: shot.speed, damage: shot.damage,
-      owner: 'player', attackId: null, born: this.now(performance.now()), ttl: BULLET_TTL_MS,
+      x: shot.x, y: shot.y, prevX: shot.x, prevY: shot.y,
+      vx: shot.vx, vy: shot.vy, speed: shot.speed, damage: shot.damage,
+      owner: 'player', attackId: null, born: this.simNow, ttl: BULLET_TTL_MS,
+      isCounter: shot.isCounter,
+      isOvercharged: shot.isOvercharged,
+      piercing: shot.piercing,
+      hitEnemyIds: [],
     });
+    this.fx.muzzleFlash(this.player.x, this.player.y, shot.vx, shot.vy, shot.isCounter);
+    if (shot.isCounter) {
+      audio.playCue('muffled-blast');
+      this.fx.shake(140, 0.009);
+      this.fx.callout(this.player.x, this.player.y - 32, 'COUNTER RAIL!', '#fde047', true);
+    } else {
+      audio.playCue('gunshot');
+      this.fx.shake(50, 0.0025);
+    }
   }
 
   private trySwitch() {
-    if (this.beatId() !== 'extraction') return;
-    if (this.gateOpen) return; // already open
-    if (this.switchHold.active) return; // already holding
-    // Must be in range of the switch.
-    const d = Math.hypot(this.player.x - SWITCH_POS.x, this.player.y - SWITCH_POS.y);
-    if (d > 60) return;
-    this.switchHold = { active: true, startTime: this.now(performance.now()) };
+    const dist = Math.hypot(this.player.x - SWITCH_POS.x, this.player.y - SWITCH_POS.y);
+    const outcome = evaluateSwitchAttempt({
+      beatId: this.beatId(),
+      gateOpen: this.gateOpen,
+      holding: this.switchHold.active,
+      distancePx: dist,
+    });
+
+    if (outcome === 'locked') {
+      audio.playCue('metal-drop');
+      const reason = this.beatId() === 'alley'
+        ? 'Gate locked — clear the alley machines first!'
+        : `Gate locked — hold Lina's shelter for ${Math.max(1, this.holdSecondsLeft)}s!`;
+      this.showToast(reason);
+      this.fx.callout(SWITCH_POS.x, SWITCH_POS.y - 34, 'LOCKED', '#94a3b8');
+      return;
+    }
+    if (outcome === 'too-far') {
+      this.showToast('Move closer to the gate switch to pull it!');
+      this.fx.callout(SWITCH_POS.x, SWITCH_POS.y - 34, 'MOVE CLOSER', '#fde047');
+      return;
+    }
+    if (outcome === 'already-open') {
+      this.showToast('Gate is already open — clear remaining machines!');
+      return;
+    }
+    if (outcome === 'started') {
+      audio.playCue('ui-confirm');
+      this.switchHold = { active: true, startTime: this.simNow };
+      this.showToast('Pulling gate switch — stay near the pillar for 1s!', 1300);
+    }
   }
 
   private updateSwitch(effNow: number) {
     if (!this.switchHold.active) return;
+    // Interrupt cleanly if K leaves the switch pillar
+    const dist = Math.hypot(this.player.x - SWITCH_POS.x, this.player.y - SWITCH_POS.y);
+    if (dist > SWITCH_KEEP_RADIUS) {
+      this.switchHold = { active: false, startTime: 0 };
+      this.showToast('Moved away from gate switch — pull again!', 1600);
+      return;
+    }
     if (effNow - this.switchHold.startTime >= SWITCH_HOLD_MS) {
       this.gateOpen = true;
       this.switchHold = { active: false, startTime: 0 };
+      audio.playCue('resolve');
+      this.fx.sparks(SWITCH_POS.x, SWITCH_POS.y, 0x4ade80, 14, 42);
+      this.fx.callout(SWITCH_POS.x, SWITCH_POS.y - 36, 'GATE OPEN!', '#4ade80', true);
+      this.showToast('Gate unlocked! Clear any remaining machines so Lina can cross to Mai.', 3000);
     }
   }
 
   private updateLina(effNow: number) {
-    // Beat 1 & 2: Lina stays behind shelter cover.
     if (this.beatId() === 'alley' || this.beatId() === 'hold') {
       this.lina.x = LINA_START.x;
       this.lina.y = LINA_START.y;
       this.lina.phase = 'behind-cover';
       return;
     }
-    // Extraction: once gate open and no live enemies, Lina moves to Mai's marker.
     if (this.beatId() === 'extraction' && this.gateOpen && this.lina.phase !== 'safe') {
       const active = this.enemies.some((e) => e.phase !== 'dead');
-      if (!active && this.lina.phase !== 'moving-to-mai') {
+      const allSpawned = this.nextSpawnIndex >= this.spawnQueue.length;
+      if (!active && allSpawned && this.lina.phase !== 'moving-to-mai') {
         this.lina.phase = 'moving-to-mai';
         this.lina.moveStartTime = effNow;
+        this.showToast('Lane clear! Lina is running to Mai!', 2200);
       }
       if (this.lina.phase === 'moving-to-mai') {
         const t = Math.min(1, (effNow - this.lina.moveStartTime) / this.lina.moveDurationMs);
@@ -746,7 +932,6 @@ export class RescueScene extends Phaser.Scene {
   }
 
   private grantRescue() {
-    // Only reaching safety grants girl-rescued and full recovery, exactly once.
     const next = completeMilestone(this.state, 'girl-rescued');
     if (next !== this.state) {
       this.state = next;
@@ -755,8 +940,8 @@ export class RescueScene extends Phaser.Scene {
     this.ended = true;
     this.paused = true;
     this.counterText.setVisible(false);
+    this.reflexTint.setVisible(false);
 
-    // Play Cutscene C04 payoff before displaying the chapter one epilogue panel
     const prefs = loadPreferences();
     const reducedMotion = prefs.status === 'ok' ? prefs.preferences.reducedMotion === 'reduce' : false;
     playCutsceneOverlay({
@@ -773,96 +958,110 @@ export class RescueScene extends Phaser.Scene {
     const allSpawned = this.nextSpawnIndex >= this.spawnQueue.length;
 
     if (this.beatId() === 'alley' && active === 0 && allSpawned) {
-      // All alley enemies defeated -> proceed to shelter hold.
       this.advanceTo('hold');
+      this.showToast('Alley clear! Hold Lina\'s shelter for 45s — Space to Reflex Dodge!', 3000);
     } else if (this.beatId() === 'hold' && this.holdExpired) {
-      // Hold timer expired: Isshin opens the route -> extraction.
       this.advanceTo('extraction');
+      audio.playCue('resolve');
+      this.showToast('Gate power restored! Move to the Gate Switch and press E or Click it!', 4000);
     }
   }
 
-  private advanceTo(nextId: BeatId) {
+  private advanceTo(nextId: RescueBeatId) {
     const target = BEAT_ORDER.indexOf(nextId);
     if (target <= this.beatIndex) return;
     this.beatIndex = target;
-    this.beatStartTime = this.now(performance.now());
+    document.body.dataset.beat = nextId;
+    this.beatStartTime = this.simNow;
     const beat = this.currentBeat();
     this.holdSecondsLeft = beat.holdSeconds ?? 0;
     this.holdTimerEndTime = this.beatStartTime + (beat.holdSeconds ?? 0) * 1000;
     this.spawnQueue = [...beat.spawns];
     this.nextSpawnIndex = 0;
     this.gateOpen = false;
-    // Moving between beats never heals; health is preserved automatically.
-    // Clear telegraphed commitments from the previous beat so nothing carries over.
+    this.switchHold = { active: false, startTime: 0 };
     for (const e of this.enemies) e.attackId = null;
-    this.spawnBeatEnemies(this.beatStartTime);
+    this.syncSwitchVisuals();
     this.updateHUD();
-  }
-
-  private maybeEndMission() {
-    // Handled by grantRescue via updateLina when Lina reaches safety.
   }
 
   // ---------- collisions / damage / counter ----------
 
   private resolveCollisions(effNow: number) {
-    // Player bullets damage enemies.
+    // Player bullets damage enemies (piercing Counter Rail shots pass through!)
     for (const b of this.bullets) {
-      if (b.owner !== 'player') continue;
+      if (b.owner !== 'player' || b.hit) continue;
       for (const e of this.enemies) {
         if (e.phase === 'dead') continue;
-        if (circleOverlap(b.x, b.y, BULLET_RADIUS, e.x, e.y, e.radius)) {
-          e.health -= b.damage;
-          b.hit = true;
+        if (b.hitEnemyIds?.includes(e.id)) continue;
+        if (circleOverlap(b.x, b.y, BULLET_RADIUS + (b.isCounter ? 4 : 0), e.x, e.y, e.radius + 4)) {
+          const exposed = isEnemyExposed(e);
+          const dmg = exposed ? Math.round(b.damage * EXPOSED_DAMAGE_MULT) : b.damage;
+          e.health -= dmg;
+          e.hitFlashUntil = effNow + 110;
+          b.hitEnemyIds?.push(e.id);
+          if (!b.piercing) b.hit = true;
+          if (b.isCounter && e.health > 0) staggerEnemy(e, effNow, 1200);
+
+          this.fx.sparks(e.x, e.y, b.isCounter ? 0xfde047 : exposed ? 0xf59e0b : 0xf87171, b.isCounter ? 10 : 6);
+          this.fx.callout(
+            e.x,
+            e.y - 24,
+            b.isCounter ? `COUNTER ${dmg}!` : exposed ? `EXPOSED ${dmg}` : `${dmg}`,
+            b.isCounter ? '#fde047' : exposed ? '#fbbf24' : '#f8fafc',
+            Boolean(b.isCounter || exposed),
+          );
+
           if (e.health <= 0) {
             e.phase = 'dead';
             e.attackId = null;
+            audio.playCue('metal-drop');
+            this.fx.sparks(e.x, e.y, 0xfde047, 12, 36);
+            this.fx.shake(80, 0.005);
           }
-          break;
+          if (!b.piercing) break;
         }
       }
     }
 
     const dodgeImmune = this.player.isDodgeInvulnerable(effNow);
 
-    // Enemy projectiles and committed enemy bodies damage K.
+    // Enemy projectiles vs player
     for (const b of this.bullets) {
-      if (b.owner !== 'enemy') continue;
+      if (b.owner !== 'enemy' || b.hit) continue;
+      if (dodgeImmune) {
+        if (
+          b.attackId &&
+          !this.awardedCounterAttackIds.has(b.attackId) &&
+          circleOverlap(b.x, b.y, BULLET_RADIUS, this.player.x, this.player.y, PLAYER_RADIUS + PERFECT_DODGE_GRAZE_MARGIN)
+        ) {
+          this.grantCounter(b.attackId, effNow);
+        }
+        continue;
+      }
       if (!circleOverlap(b.x, b.y, BULLET_RADIUS, this.player.x, this.player.y, PLAYER_RADIUS)) continue;
       b.hit = true;
-      if (dodgeImmune) continue;
       const res = this.damage.acceptHit(this.state, b.attackId, effNow);
       if (res) this.applyHit(res, effNow);
     }
 
+    // Committed Rusher contact vs player
     for (const e of this.enemies) {
       if (e.phase !== 'committed' || !e.attackId) continue;
+      if (dodgeImmune) {
+        if (
+          !this.awardedCounterAttackIds.has(e.attackId) &&
+          circleOverlap(e.x, e.y, e.radius, this.player.x, this.player.y, PLAYER_RADIUS + PERFECT_DODGE_GRAZE_MARGIN)
+        ) {
+          this.grantCounter(e.attackId, effNow);
+        }
+        continue;
+      }
       if (!circleOverlap(this.player.x, this.player.y, PLAYER_RADIUS, e.x, e.y, e.radius)) continue;
-      if (dodgeImmune) continue;
       const res = this.damage.acceptHit(this.state, e.attackId, effNow);
       if (res) this.applyHit(res, effNow);
     }
 
-    // Perfect dodge: a committed hostile attack would have hit K during the
-    // dodge's invulnerable interval. One counter per attack ID.
-    if (dodgeImmune) {
-      for (const b of this.bullets) {
-        if (b.owner !== 'enemy' || !b.attackId) continue;
-        if (circleOverlap(b.x, b.y, BULLET_RADIUS, this.player.x, this.player.y, PLAYER_RADIUS)) {
-          this.grantCounter(b.attackId, effNow);
-        }
-      }
-      for (const e of this.enemies) {
-        if (e.phase !== 'committed' || !e.attackId) continue;
-        if (circleOverlap(e.x, e.y, e.radius, this.player.x, this.player.y, PLAYER_RADIUS)) {
-          this.grantCounter(e.attackId, effNow);
-        }
-      }
-    }
-
-    this.bullets = this.bullets.filter((b) => !b.hit);
-
-    // Counter window expires harmlessly; a missed window is never a punishment.
     if (this.player.counterActive && effNow >= this.player.counterEndTime) {
       this.player.clearCounter();
     }
@@ -870,43 +1069,48 @@ export class RescueScene extends Phaser.Scene {
 
   private applyHit(res: { state: RunState; killed: boolean }, effNow: number) {
     this.state = res.state;
-    saveRun(this.state); // save each validated damaging hit immediately
-    this.player.clearCounter(); // new damaging hits clear stale counter windows
-    this.switchHold = { active: false, startTime: 0 }; // damage interrupts the switch hold
+    saveRun(this.state);
+    this.player.clearCounter();
+    if (this.switchHold.active) {
+      this.switchHold = { active: false, startTime: 0 };
+      this.showToast('Hit interrupted the gate switch — pull it again!', 2000);
+    }
     this.hitFlashEndTime = effNow + HIT_FLASH_MS;
     this.hitTextEndTime = effNow + HIT_TEXT_MS;
-    if (res.killed) {
-      this.defeated = true;
-    }
+    audio.playCue('muffled-blast');
+    this.fx.shake(160, 0.011);
+    this.fx.sparks(this.player.x, this.player.y, 0xef4444, 10, 32);
+    if (res.killed) this.defeated = true;
   }
 
   private grantCounter(attackId: string, effNow: number) {
     if (this.player.counterActive) return;
-    // Counter teaching: the first perfect dodge during the hold pauses and
-    // explains the technique before unlocking it for this attempt.
+    this.awardedCounterAttackIds.add(attackId);
     if (this.beatId() === 'hold' && !this.counterTaught && !this.state.counterUnlocked) {
       this.counterTaught = true;
       this.teachingPaused = true;
-      this.paused = true;
+      this.teachingOpenedAt = performance.now();
       this.teachingCard.setVisible(true);
-      this.teachingCard.setSize(420, 220);
+      audio.playCue('resolve');
       return;
     }
     this.awardCounter(attackId, effNow);
   }
 
   private dismissTeaching() {
+    if (!this.teachingCard.visible) return;
     this.teachingCard.setVisible(false);
     this.teachingPaused = false;
-    this.paused = false;
     this.state.counterUnlocked = true;
     saveRun(this.state);
-    this.awardCounter(null, this.now(performance.now())); // open a fresh window
+    this.awardCounter(null, this.simNow);
   }
 
   private awardCounter(attackId: string | null, effNow: number) {
     this.player.openCounter(effNow, attackId ?? null);
-    this.counterText.setText('COUNTER - CLICK').setVisible(true);
+    audio.playCue('resolve');
+    this.fx.reflexFlash(this.player.x, this.player.y);
+    this.counterText.setText('REFLEX COUNTER — CLICK TO FIRE RAIL').setVisible(true);
   }
 
   private handleDefeat() {
@@ -916,22 +1120,23 @@ export class RescueScene extends Phaser.Scene {
     this.pauseOverlay.setVisible(true);
     this.gameOverPanel.setVisible(true);
     this.counterText.setVisible(false);
+    this.reflexTint.setVisible(false);
   }
 
   private restartMission() {
     this.defeated = false;
     this.paused = false;
     this.ended = false;
-    this.pausedOffset = 0;
-    this.pausedAt = null;
+    this.simNow = 0;
     this.fireCooldown = 0;
     this.hitFlashEndTime = 0;
     this.hitTextEndTime = 0;
+    this.isshinCoverFireTime = 0;
+    this.lastGhostTime = 0;
     this.teachingPaused = false;
-    this.counterTaught = false; // a retry re-locks the counter and re-teaches it
+    this.counterTaught = false;
+    this.awardedCounterAttackIds.clear();
 
-    // restartRescue only accepts a failed rescue: full health, reset mission,
-    // counter unlock cleared, earlier story preserved.
     const failedState = { ...this.state, rescueStatus: 'failed' as const };
     this.state = restartRescue(failedState);
     saveRun(this.state);
@@ -964,7 +1169,8 @@ export class RescueScene extends Phaser.Scene {
     this.linaLabel.setPosition(this.lina.x, this.lina.y + 22);
 
     this.beatIndex = 0;
-    this.beatStartTime = this.now(performance.now());
+    document.body.dataset.beat = this.beatId();
+    this.beatStartTime = this.simNow;
     const beat = this.currentBeat();
     this.holdSecondsLeft = beat.holdSeconds ?? 0;
     this.holdTimerEndTime = this.beatStartTime + (beat.holdSeconds ?? 0) * 1000;
@@ -973,19 +1179,20 @@ export class RescueScene extends Phaser.Scene {
 
     this.gameOverPanel.setVisible(false);
     this.pauseOverlay.setVisible(false);
+    this.pauseTitle.setVisible(false);
+    this.pauseHint.setVisible(false);
     this.counterText.setVisible(false);
     this.hitText.setVisible(false);
     this.hitFlash.setVisible(false);
     this.teachingCard.setVisible(false);
+    this.reflexTint.setVisible(false);
 
-    this.spawnBeatEnemies(this.beatStartTime);
+    this.syncSwitchVisuals();
     this.updateHUD();
     this.syncGraphics();
   }
 
   private returnToTitle() {
-    // Signal the host page (main.ts) to re-show the menu, then tear down the
-    // scene. Story routing and Continue are owned by Phase 6.
     window.dispatchEvent(new CustomEvent('want:return-to-title'));
     this.game.destroy(true);
   }
@@ -1007,18 +1214,61 @@ export class RescueScene extends Phaser.Scene {
     if (this.defeated && !p) return;
     this.paused = p;
     this.pauseOverlay.setVisible(p);
-    if (p) {
-      this.pausedAt = performance.now();
-    } else if (this.pausedAt !== null) {
-      this.pausedOffset += performance.now() - this.pausedAt;
-      this.pausedAt = null;
-      if (clearInputs) this.player.setDirection(0, 0);
+    this.pauseTitle.setVisible(p);
+    this.pauseHint.setVisible(p);
+    if (!p && clearInputs) this.player.setDirection(0, 0);
+  }
+
+  private syncSwitchVisuals() {
+    this.switchProgressGraphics.clear();
+    if (this.gateOpen) {
+      this.switchSprite.setFillStyle(0x4ade80, 0.35);
+      this.switchSprite.setStrokeStyle(2, 0x86efac, 0.95);
+      this.switchLabel.setText('Gate OPEN').setColor('#86efac');
+      return;
     }
+
+    if (this.beatId() !== 'extraction') {
+      this.switchSprite.setFillStyle(0x475569, 0.16);
+      this.switchSprite.setStrokeStyle(1.5, 0x94a3b8, 0.65);
+      this.switchLabel.setText('Gate locked').setColor('#94a3b8');
+      return;
+    }
+
+    if (this.switchHold.active) {
+      const p = switchHoldProgress(this.switchHold.startTime, this.simNow);
+      const pct = Math.round(p * 100);
+      this.switchSprite.setFillStyle(0xfde047, 0.42);
+      this.switchSprite.setStrokeStyle(2, 0xfef08a, 1);
+      this.switchLabel.setText(`Opening… ${pct}%`).setColor('#fef08a');
+      this.switchProgressGraphics.lineStyle(4, 0x4ade80, 1);
+      this.switchProgressGraphics.beginPath();
+      this.switchProgressGraphics.arc(
+        SWITCH_POS.x,
+        SWITCH_POS.y,
+        22,
+        -Math.PI / 2,
+        -Math.PI / 2 + Math.PI * 2 * p,
+        false,
+      );
+      this.switchProgressGraphics.strokePath();
+      return;
+    }
+
+    // Extraction ready!
+    this.switchSprite.setFillStyle(0xe9b45c, 0.28);
+    this.switchSprite.setStrokeStyle(2.5, 0xfde047, 1);
+    this.switchLabel.setText('E / Click · Gate switch').setColor('#fde047');
   }
 
   private syncGraphics() {
     this.playerSprite.setPosition(this.player.x, this.player.y);
     this.playerShadow.setPosition(this.player.x, this.player.y + 18);
+    if (this.player.dodging) {
+      this.playerSprite.setTint(this.player.canCounter(this.simNow) ? 0xfde047 : 0x7dd3fc);
+    } else {
+      this.playerSprite.clearTint();
+    }
 
     const movingUp = this.keys.W.isDown || this.keys.UP.isDown;
     const movingDown = this.keys.S.isDown || this.keys.DOWN.isDown;
@@ -1033,20 +1283,11 @@ export class RescueScene extends Phaser.Scene {
       this.playerSprite.play(targetAnim);
     }
 
-    // Mai and Isshin are static, but ensure they're positioned
     this.maiSprite.setPosition(MAI_MARKER.x, MAI_MARKER.y);
     this.isshinSprite.setPosition(ISSHIN_POS.x, ISSHIN_POS.y);
     this.switchSprite.setPosition(SWITCH_POS.x, SWITCH_POS.y);
-    if (this.gateOpen) {
-      this.switchSprite.setFillStyle(0x4ade80, 0.35);
-      this.switchSprite.setStrokeStyle(2, 0x86efac, 0.95);
-    } else if (this.switchHold.active) {
-      this.switchSprite.setFillStyle(0xfde047, 0.45);
-      this.switchSprite.setStrokeStyle(2, 0xfef08a, 1);
-    } else {
-      this.switchSprite.setFillStyle(0xe9b45c, 0.22);
-      this.switchSprite.setStrokeStyle(2, 0xfde047, 0.95);
-    }
+    this.switchHitZone.setPosition(SWITCH_POS.x, SWITCH_POS.y);
+    this.syncSwitchVisuals();
 
     const liveEnemyIds = new Set<string>();
     for (const e of this.enemies) {
@@ -1055,21 +1296,22 @@ export class RescueScene extends Phaser.Scene {
       let shadow = this.enemyShadows.get(e.id);
       const displaySize = e.kind === 'scout' ? SPRITE_DISPLAY.combatScout : SPRITE_DISPLAY.combatRusher;
       if (!sprite) {
-        const textureKey = e.kind === 'scout' ? 'scout-idle' : 'rusher-idle';
-        sprite = this.add.sprite(e.x, e.y, textureKey, 0);
-        sprite.setDisplaySize(displaySize, displaySize);
-        sprite.setDepth(48);
+        sprite = this.add.sprite(e.x, e.y, e.kind === 'scout' ? 'scout-idle' : 'rusher-idle', 0)
+          .setDisplaySize(displaySize, displaySize).setDepth(48);
         this.enemySprites.set(e.id, sprite);
       }
       if (!shadow) {
-        shadow = this.add.ellipse(e.x, e.y + 18, displaySize * 0.56, 10, 0x05070a, 0.45)
-          .setDepth(44);
+        shadow = this.add.ellipse(e.x, e.y + 18, displaySize * 0.56, 10, 0x05070a, 0.45).setDepth(44);
         this.enemyShadows.set(e.id, shadow);
       }
       sprite.setPosition(e.x, e.y);
       shadow.setPosition(e.x, e.y + 18);
       const dirFrame = directionFrame4Dir(e.dirX, e.dirY);
-      if (e.phase === 'committed') {
+
+      if (e.phase === 'staggered') {
+        sprite.setTexture(e.kind === 'scout' ? 'scout-disabled' : 'rusher-recovery', dirFrame);
+        sprite.setTint(0xfde047);
+      } else if (e.phase === 'committed') {
         sprite.setTexture(e.kind === 'scout' ? 'scout-recoil' : 'rusher-charge', dirFrame);
         sprite.setTint(0xf87171);
       } else if (e.phase === 'telegraph') {
@@ -1079,19 +1321,16 @@ export class RescueScene extends Phaser.Scene {
         sprite.setTexture(e.kind === 'scout' ? 'scout-idle' : 'rusher-idle', dirFrame);
         sprite.clearTint();
       }
+      if (this.simNow < e.hitFlashUntil) {
+        sprite.setTintFill(0xffffff);
+      }
       sprite.setDisplaySize(displaySize, displaySize);
     }
     for (const [id, sprite] of this.enemySprites) {
-      if (!liveEnemyIds.has(id)) {
-        sprite.destroy();
-        this.enemySprites.delete(id);
-      }
+      if (!liveEnemyIds.has(id)) { sprite.destroy(); this.enemySprites.delete(id); }
     }
     for (const [id, shadow] of this.enemyShadows) {
-      if (!liveEnemyIds.has(id)) {
-        shadow.destroy();
-        this.enemyShadows.delete(id);
-      }
+      if (!liveEnemyIds.has(id)) { shadow.destroy(); this.enemyShadows.delete(id); }
     }
 
     const liveBulletIds = new Set<string>();
@@ -1099,46 +1338,61 @@ export class RescueScene extends Phaser.Scene {
       liveBulletIds.add(b.id);
       let g = this.bulletGraphics.get(b.id);
       if (!g) {
-        g = this.add.circle(0, 0, BULLET_RADIUS, b.owner === 'player' ? 0x4ade80 : 0xf87171);
-        g.setDepth(47);
+        const col = b.isCounter ? 0xfde047 : b.isOvercharged ? 0xf59e0b : b.owner === 'player' ? 0x4ade80 : 0xf87171;
+        g = this.add.circle(0, 0, b.isCounter ? 5 : BULLET_RADIUS, col).setDepth(47);
         this.bulletGraphics.set(b.id, g);
       }
       g.setPosition(b.x, b.y);
     }
     for (const [id, g] of this.bulletGraphics) {
-      if (!liveBulletIds.has(id)) {
-        g.destroy();
-        this.bulletGraphics.delete(id);
-      }
+      if (!liveBulletIds.has(id)) { g.destroy(); this.bulletGraphics.delete(id); }
     }
 
+    // Crisp telegraphs: Scout laser sight + Rusher shaded charge corridor
     this.telegraphGraphics.clear();
-    this.telegraphGraphics.lineStyle(2, 0xf87171, 0.5);
     for (const e of this.enemies) {
-      if (e.phase === 'telegraph') {
-        this.telegraphGraphics.lineBetween(e.x, e.y, e.x + e.dirX * 96, e.y + e.dirY * 96);
+      if (e.phase !== 'telegraph') continue;
+      if (e.kind === 'scout') {
+        const len = 300;
+        const alpha = e.dirLocked ? 0.92 : 0.42 + e.telegraphT * 0.35;
+        this.telegraphGraphics.lineStyle(e.dirLocked ? 2.5 : 1.5, e.dirLocked ? 0xff3b3b : 0xfbbf24, alpha);
+        this.telegraphGraphics.lineBetween(e.x, e.y, e.x + e.dirX * len, e.y + e.dirY * len);
+      } else {
+        const laneLen = 190;
+        const perpX = -e.dirY * 14;
+        const perpY = e.dirX * 14;
+        const endX = e.x + e.dirX * laneLen;
+        const endY = e.y + e.dirY * laneLen;
+        this.telegraphGraphics.fillStyle(0xef4444, e.dirLocked ? 0.24 : 0.12);
+        this.telegraphGraphics.beginPath();
+        this.telegraphGraphics.moveTo(e.x + perpX, e.y + perpY);
+        this.telegraphGraphics.lineTo(endX + perpX, endY + perpY);
+        this.telegraphGraphics.lineTo(endX - perpX, endY - perpY);
+        this.telegraphGraphics.lineTo(e.x - perpX, e.y - perpY);
+        this.telegraphGraphics.closePath();
+        this.telegraphGraphics.fillPath();
+        this.telegraphGraphics.lineStyle(2, e.dirLocked ? 0xff4d4d : 0xf97316, e.dirLocked ? 0.9 : 0.55);
+        this.telegraphGraphics.lineBetween(e.x, e.y, endX, endY);
       }
     }
 
-    // Counter window: ring + text.
     this.counterRing.clear();
     if (this.player.counterActive) {
-      this.counterRing.lineStyle(3, 0xfde047, 0.9);
-      this.counterRing.strokeCircle(this.player.x, this.player.y, 28);
+      const rem = Math.max(0, (this.player.counterEndTime - this.simNow) / combatTuning.counterWindowMs);
+      this.counterRing.lineStyle(3, 0xfde047, 0.95);
+      this.counterRing.beginPath();
+      this.counterRing.arc(this.player.x, this.player.y, 28, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * rem, false);
+      this.counterRing.strokePath();
       this.counterRing.setVisible(true);
     } else {
       this.counterRing.setVisible(false);
     }
 
-    // Lina flash when safe.
-    if (this.lina.phase === 'safe') {
-      this.linaSprite.setTint(0x86efac);
-    } else {
-      this.linaSprite.clearTint();
-    }
+    if (this.lina.phase === 'safe') this.linaSprite.setTint(0x86efac);
+    else this.linaSprite.clearTint();
   }
 
-  private updateHUD(effNow?: number) {
+  private updateHUD() {
     const d = difficultyRules[this.difficulty];
     const seg = d.damagePerHit;
     const numSegments = Math.round(MAX_HEALTH / seg);
@@ -1147,34 +1401,38 @@ export class RescueScene extends Phaser.Scene {
     for (let i = 0; i < numSegments; i++) bars += i < filled ? '█' : '░';
     const active = this.enemies.filter((e) => e.phase !== 'dead').length;
     const beatLabel = this.beatId().toUpperCase();
-    const hold = this.beatId() === 'hold' ? `  Hold ${Math.max(0, this.holdSecondsLeft)}s` : '';
-    const gate = this.gateOpen ? `  GATE OPEN` : '';
+
+    if (this.beatId() === 'hold' && !this.holdExpired) {
+      this.holdSecondsLeft = Math.max(0, Math.ceil((this.holdTimerEndTime - this.simNow) / 1000));
+    }
+
+    const hold = this.beatId() === 'hold' ? ` · ${Math.max(0, this.holdSecondsLeft)}s` : '';
+    const gate = this.gateOpen ? ' · GATE OPEN' : '';
+    const ammoStr = this.player.reloading ? 'RELOAD [R]' : `AMMO ${this.player.ammo}/6`;
     this.hudText.setText(
-      `${d.label}  ${beatLabel}${hold}${gate}  Health ${bars}  ${this.state.health}/100  ` +
-      `Enemies ${active}/${this.currentBeat().maxActive}`,
+      `${d.label}  ${beatLabel}${hold}${gate}  ·  HP ${bars} ${this.state.health}/100  ·  ${ammoStr}  ·  Enemies ${active}/${this.currentBeat().maxActive}`,
     );
 
-    if (effNow !== undefined) {
-      if (this.player.counterActive && effNow < this.player.counterEndTime) {
-        this.counterText.setVisible(true);
-      } else {
-        this.counterText.setVisible(false);
-      }
-      if (effNow < this.hitFlashEndTime) {
-        this.hitFlash.setAlpha(0.35).setVisible(true);
-      } else {
-        this.hitFlash.setVisible(false);
-      }
-      if (effNow < this.hitTextEndTime) {
-        this.hitText.setVisible(true);
-      } else {
-        this.hitText.setVisible(false);
-      }
-      // Tick the hold seconds display.
-      if (this.beatId() === 'hold' && !this.gateOpen) {
-        this.holdSecondsLeft = Math.max(0, Math.ceil((this.holdTimerEndTime - effNow) / 1000));
-      }
+    // Clear, unambiguous objective banner for every rescue stage
+    let obj = '';
+    if (this.beatId() === 'alley') {
+      obj = 'BEAT 1/3 · Clear the alley machines (Click to fire · Space to Reflex Dodge · R to reload)';
+    } else if (this.beatId() === 'hold') {
+      obj = `BEAT 2/3 · Hold Lina's shelter (${this.holdSecondsLeft}s left) — Gate unlocks when timer ends`;
+    } else if (!this.gateOpen) {
+      obj = this.switchHold.active
+        ? 'BEAT 3/3 · Pulling Gate Switch — stay near the pillar!'
+        : 'BEAT 3/3 · Move to the glowing Gate Switch and press E or Click it!';
+    } else if (this.lina.phase === 'moving-to-mai') {
+      obj = 'EXTRACTION · Gate open — covering Lina as she reaches Mai!';
+    } else {
+      obj = 'BEAT 3/3 · Gate OPEN! Clear remaining machines so Lina can cross to Mai';
     }
+    this.objectiveText.setText(obj);
+
+    this.counterText.setVisible(this.player.canCounter(this.simNow));
+    this.hitFlash.setAlpha(0.35).setVisible(this.simNow < this.hitFlashEndTime);
+    this.hitText.setVisible(this.simNow < this.hitTextEndTime);
   }
 
   private inBounds(b: CombatBullet): boolean {

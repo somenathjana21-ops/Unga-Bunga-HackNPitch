@@ -137,72 +137,108 @@ dialog h2 { margin-top: 0; font-size: 28px; }
 .cutscene-stage {
   position: relative;
   z-index: 1;
-  width: min(92vw, 1080px);
-  height: min(70vh, 608px);
-  display: grid;
-  place-items: center;
+  width: min(92vw, 1020px);
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px 0;
   text-align: center;
 }
+.cutscene-header {
+  width: 100%;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 0 0 auto;
+}
 .cutscene-title {
-  margin: 0 0 12px 0;
-  font-size: clamp(20px, 3vw, 28px);
+  margin: 0;
+  font-size: clamp(18px, 2.4vw, 24px);
   color: #e3b16b;
-  z-index: 1;
+  letter-spacing: 0.02em;
+}
+.cutscene-counter {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #9a9fa8;
+}
+.cutscene-frame {
   position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: min(64vh, 540px);
+  flex: 0 1 auto;
+  overflow: hidden;
+  background: #0d1117;
+  border: 1px solid #303743;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .cutscene-pan {
   position: relative;
   width: 100%;
   height: 100%;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  background: #101217;
-  border: 1px solid #303743;
-  border-radius: 4px;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transform-origin: center center;
   will-change: transform;
 }
 .cutscene-image {
-  width: 100%;
-  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
   object-fit: contain;
   display: block;
 }
+.cutscene-image.is-portrait {
+  max-height: 92%;
+  max-width: 92%;
+}
 .cutscene-video {
+  max-width: 100%;
+  max-height: 100%;
   width: 100%;
   height: 100%;
   object-fit: contain;
   display: block;
-  background: #101217;
+  background: #0d1117;
 }
 .cutscene-card {
   width: 100%;
   height: 100%;
   display: grid;
   place-items: center;
-  padding: 24px;
-  font-size: clamp(15px, 2vw, 20px);
+  padding: 28px;
+  font-size: clamp(16px, 2vw, 22px);
   line-height: 1.7;
-  color: #c4c9d0;
-  background: #171d26;
+  color: #e2e3e6;
+  background: #141a23;
 }
 .cutscene-caption {
-  margin: 14px 0 0 0;
-  font-size: clamp(13px, 1.6vw, 15px);
+  margin: 0;
+  min-height: 2.8em;
+  font-size: clamp(14px, 1.6vw, 16px);
   line-height: 1.5;
-  color: #b1b4ba;
-  max-width: min(720px, 88vw);
-  z-index: 1;
-  position: relative;
+  color: #d6d9df;
+  max-width: min(760px, 88vw);
+  flex: 0 0 auto;
 }
 .cutscene-controls {
-  margin-top: 16px;
+  margin-top: 2px;
   display: flex;
   gap: 12px;
   justify-content: center;
-  z-index: 1;
-  position: relative;
+  flex: 0 0 auto;
 }
 .cutscene-skip, .cutscene-next {
   border-radius: 4px;

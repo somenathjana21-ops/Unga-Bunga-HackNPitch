@@ -12,6 +12,13 @@ export interface CoverRect {
   h: number;
 }
 
+export interface ArenaBounds {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
+
 export interface CombatEnemy {
   id: string;
   kind: EnemyKind;
@@ -20,7 +27,7 @@ export interface CombatEnemy {
   radius: number;
   health: number;
   maxHealth: number;
-  phase: 'idle' | 'telegraph' | 'committed' | 'recovering' | 'dead';
+  phase: 'idle' | 'telegraph' | 'committed' | 'recovering' | 'staggered' | 'dead';
   // Current committed hostile attack. Set when the attack commits; cleared when it
   // resolves. Tied to attack IDs so one attack cannot award multiple counters.
   attackId: string | null;
@@ -36,16 +43,25 @@ export interface CombatEnemy {
   committedVx: number;
   committedVy: number;
   committedEndTime: number;
-  // Recovery end after a committed attack.
+  // Recovery / stagger end after a committed attack or cover slam.
   recoverEndTime: number;
+  staggeredUntil: number;
   // Next AI decision timestamp.
   nextDecisionTime: number;
+  // Active positioning & feedback state.
+  strafeDir: 1 | -1;
+  hitFlashUntil: number;
+  burstRemaining: number;
+  nextBurstTime: number;
+  slammedCover: boolean;
 }
 
 export interface CombatBullet {
   id: string;
   x: number;
   y: number;
+  prevX: number;
+  prevY: number;
   vx: number;
   vy: number;
   speed: number;
@@ -55,6 +71,10 @@ export interface CombatBullet {
   born: number;
   ttl: number;
   hit?: boolean;
+  isCounter?: boolean;
+  isOvercharged?: boolean;
+  piercing?: boolean;
+  hitEnemyIds?: string[];
 }
 
 export interface SpawnRequest {

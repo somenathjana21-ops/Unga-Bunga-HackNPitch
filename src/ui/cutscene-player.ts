@@ -16,6 +16,7 @@ let overlay: HTMLElement | null = null;
 let imageEl: HTMLImageElement | null = null;
 let cardEl: HTMLElement | null = null;
 let captionEl: HTMLElement | null = null;
+let counterEl: HTMLElement | null = null;
 let panLayer: HTMLElement | null = null;
 let videoEl: HTMLVideoElement | null = null;
 let skipEl: HTMLButtonElement | null = null;
@@ -35,11 +36,16 @@ function ensureOverlay(): HTMLElement {
   overlay.innerHTML = `
     <div class="cutscene-backdrop"></div>
     <div class="cutscene-stage" id="cutscene-stage">
-      <h2 id="cutscene-title" class="cutscene-title"></h2>
-      <div class="cutscene-pan" id="cutscene-pan">
-        <img class="cutscene-image" id="cutscene-image" alt="" />
-        <video class="cutscene-video" id="cutscene-video" playsinline muted preload="none"></video>
-        <div class="cutscene-card" id="cutscene-card"></div>
+      <div class="cutscene-header">
+        <h2 id="cutscene-title" class="cutscene-title"></h2>
+        <span id="cutscene-counter" class="cutscene-counter"></span>
+      </div>
+      <div class="cutscene-frame">
+        <div class="cutscene-pan" id="cutscene-pan">
+          <img class="cutscene-image" id="cutscene-image" alt="" />
+          <video class="cutscene-video" id="cutscene-video" playsinline muted preload="none"></video>
+          <div class="cutscene-card" id="cutscene-card"></div>
+        </div>
       </div>
       <p id="cutscene-caption" class="cutscene-caption"></p>
       <div class="cutscene-controls" id="cutscene-controls">
@@ -56,6 +62,7 @@ function refs(): void {
   imageEl = document.getElementById('cutscene-image') as HTMLImageElement | null;
   cardEl = document.getElementById('cutscene-card') as HTMLElement | null;
   captionEl = document.getElementById('cutscene-caption') as HTMLElement | null;
+  counterEl = document.getElementById('cutscene-counter') as HTMLElement | null;
   panLayer = document.getElementById('cutscene-pan') as HTMLElement | null;
   videoEl = document.getElementById('cutscene-video') as HTMLVideoElement | null;
   skipEl = document.getElementById('cutscene-skip') as HTMLButtonElement | null;
@@ -129,6 +136,7 @@ function renderShot(shot: CutsceneShot, transform: { scale: number; x: number; y
     image.alt = '';
   } else {
     image.hidden = false;
+    image.classList.toggle('is-portrait', shot.kind === 'portrait');
     image.src = imagePath(shot.imageId!);
     image.alt = shot.caption;
     const label = shot.kind === 'portrait' ? 'Character portrait' : 'Environment';
@@ -141,7 +149,7 @@ function renderShot(shot: CutsceneShot, transform: { scale: number; x: number; y
   captionEl.textContent = shot.caption;
 
   if (controller && panLayer) {
-    if (controller.reducedMotion || !shot.pan || shot.video) {
+    if (controller.reducedMotion || !shot.pan || shot.video || shot.kind === 'portrait') {
       panLayer.style.transform = 'none';
     } else {
       panLayer.style.transform = `scale(${transform.scale}) translate(${transform.x * 100}%, ${transform.y * 100}%)`;
@@ -210,7 +218,7 @@ function renderFrame(): void {
   if (!controller || !panLayer) return;
   const current = controller.current;
   if (!current) return;
-  if (!controller.reducedMotion && current.shot.pan) {
+  if (!controller.reducedMotion && current.shot.pan && current.shot.kind !== 'portrait') {
     const elapsed = controller.completed
       ? current.shot.pan.durationMs
       : performance.now() - panStart;
@@ -261,6 +269,9 @@ function show(cutscene: Cutscene, reducedMotion: boolean, onComplete: (cutsceneI
     panStart = performance.now();
     renderShot(current.shot, current.transform);
     playShotAudio(current.shot);
+    if (counterEl) {
+      counterEl.textContent = `${current.index + 1} / ${cutscene.shots.length}`;
+    }
     if (nextEl) {
       nextEl.disabled = false;
       nextEl.textContent = current.last ? 'Finish' : 'Next';
@@ -351,6 +362,7 @@ export function destroyCutscenePlayer(): void {
   imageEl = null;
   cardEl = null;
   captionEl = null;
+  counterEl = null;
   panLayer = null;
   videoEl = null;
   skipEl = null;
