@@ -8,15 +8,13 @@
 // Image kinds:
 //   'portrait'   - a supplied speaking portrait of a character. Labelled as a
 //                  character portrait, never presented as an environment.
-//   'environment' - an environment composition. No supplied environment art
-//                   exists yet, so these shots fall back to a text card.
+//   'environment' - an environment composition. Now using generated assets.
 //   'card'       - a labelled text card describing the moment. Safe fallback
 //                   whenever the required art is missing.
 //
 // Every image reference below uses an ID already declared in
-// assets/runtime-manifest.json (speaking portraits). No new image files are
-// introduced by this phase, so no source art is overwritten. Missing art is
-// labelled temporary in the caption/card text, per the art contract.
+// assets/runtime-manifest.json (speaking portraits). New environment images
+// are also declared in the manifest.
 
 export interface CutscenePan {
   from: { scale: number; x: number; y: number };
@@ -56,8 +54,8 @@ export const cutscenes: Record<string, Cutscene> = {
     shots: [
       {
         id: 'c01-a',
-        kind: 'card',
-        imageId: null,
+        kind: 'environment',
+        imageId: 'c01-courtyard-reveal',
         caption: 'K sees Sayu and Nero together in the library courtyard.',
         audio: ['phone-end'],
       },
@@ -65,7 +63,7 @@ export const cutscenes: Record<string, Cutscene> = {
         id: 'c01-b',
         kind: 'portrait',
         imageId: 'sayu-speaking-pose',
-        caption: 'Sayu: “I’m sorry. Please let me explain.”',
+        caption: "Sayu: 'I'm sorry. Please let me explain.'",
         pan: {
           from: { scale: 1, x: 0, y: 0 },
           to: { scale: 1.06, x: 0.02, y: -0.02 },
@@ -76,7 +74,7 @@ export const cutscenes: Record<string, Cutscene> = {
         id: 'c01-c',
         kind: 'portrait',
         imageId: 'nero-speaking-pose',
-        caption: 'Nero: “K...”',
+        caption: 'Nero: "K..."',
         pan: {
           from: { scale: 1, x: 0, y: 0 },
           to: { scale: 1.04, x: -0.02, y: 0.02 },
@@ -85,8 +83,8 @@ export const cutscenes: Record<string, Cutscene> = {
       },
       {
         id: 'c01-d',
-        kind: 'card',
-        imageId: null,
+        kind: 'environment',
+        imageId: 'c01-bracelet-fall',
         caption: 'K removes his bracelet. It falls between them.',
         audio: ['metal-drop'],
         advanceAfterMs: 1400,
@@ -95,7 +93,7 @@ export const cutscenes: Record<string, Cutscene> = {
         id: 'c01-e',
         kind: 'card',
         imageId: null,
-        caption: 'K: “I can’t listen right now. Don’t contact me.”',
+        caption: 'K: "I can\'t listen right now. Don\'t contact me."',
         audio: ['ui-confirm'],
       },
     ],
@@ -108,15 +106,15 @@ export const cutscenes: Record<string, Cutscene> = {
     shots: [
       {
         id: 'c02-a',
-        kind: 'card',
-        imageId: null,
+        kind: 'environment',
+        imageId: 'c02-barrier-arrival',
         caption: 'A hollow black barrier fills the dorm hallway. Power fails.',
         audio: ['power-cut'],
       },
       {
         id: 'c02-b',
-        kind: 'card',
-        imageId: null,
+        kind: 'environment',
+        imageId: 'c02-machine-silhouette',
         caption: 'Mechanical shrieks. Man 1 and Man 2 fire into the barrier.',
         audio: ['machine-shriek', 'gunshot'],
       },
@@ -124,27 +122,27 @@ export const cutscenes: Record<string, Cutscene> = {
         id: 'c02-c',
         kind: 'portrait',
         imageId: 'man-1-speaking-pose',
-        caption: 'Man 1: “Keep it inside! Fire!”',
+        caption: 'Man 1: "Keep it inside! Fire!"',
       },
       {
         id: 'c02-d',
         kind: 'portrait',
         imageId: 'man-2-speaking-pose',
-        caption: 'Man 2: “Take this. If it comes through, shoot!”',
+        caption: 'Man 2: "Take this. If it comes through, shoot!"',
       },
       {
         id: 'c02-e',
-        kind: 'card',
-        imageId: null,
+        kind: 'environment',
+        imageId: 'c02-scan-base',
         caption: 'A mechanical limb pulls Man 1 out of frame. Man 2 is thrown across the room.',
         audio: ['muffled-blast'],
         advanceAfterMs: 1200,
       },
       {
         id: 'c02-f',
-        kind: 'card',
-        imageId: null,
-        caption: 'Isshin wedges an explosive into the machine’s frame. Mai carries K through the barrier.',
+        kind: 'environment',
+        imageId: 'c02-retrieval',
+        caption: "Isshin wedges an explosive into the machine's frame. Mai carries K through the barrier.",
         audio: ['muffled-blast'],
         pan: {
           from: { scale: 1, x: 0, y: 0 },
@@ -162,16 +160,16 @@ export const cutscenes: Record<string, Cutscene> = {
     shots: [
       {
         id: 'c03-a',
-        kind: 'card',
-        imageId: null,
+        kind: 'environment',
+        imageId: 'c03-cebu-skyline',
         caption: 'Broken towers, makeshift lights, and a machine patrol beyond the clinic window.',
         audio: ['machinery', 'wind'],
       },
       {
         id: 'c03-b',
-        kind: 'card',
-        imageId: null,
-        caption: 'Mai: “Cebu. The year is 2085.”',
+        kind: 'portrait',
+        imageId: 'mai-speaking-pose',
+        caption: 'Mai: "Cebu. The year is 2085."',
         pan: {
           from: { scale: 1, x: 0, y: 0 },
           to: { scale: 1.03, x: 0, y: 0.02 },
@@ -188,8 +186,8 @@ export const cutscenes: Record<string, Cutscene> = {
     shots: [
       {
         id: 'c04-a',
-        kind: 'card',
-        imageId: null,
+        kind: 'environment',
+        imageId: 'c04-k-protects-lina',
         caption: 'K stands between Lina and the approaching machines at the service gate.',
         audio: ['gunshot'],
       },
@@ -197,12 +195,12 @@ export const cutscenes: Record<string, Cutscene> = {
         id: 'c04-b',
         kind: 'portrait',
         imageId: 'mai-speaking-pose',
-        caption: 'Mai: “I’ve got her. Isshin, fall back!”',
+        caption: "Mai: 'I've got her. Isshin, fall back!'",
       },
       {
         id: 'c04-c',
-        kind: 'card',
-        imageId: null,
+        kind: 'environment',
+        imageId: 'c04-extraction',
         caption: 'Lina reaches Mai alive. K is alive. Resolve restored.',
         audio: ['resolve'],
         advanceAfterMs: 1600,

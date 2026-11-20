@@ -15,7 +15,7 @@ for (const asset of manifest.assets) {
   const source = resolve(root, asset.source);
   const publicRoot = resolve(root, 'public/assets');
   const destination = resolve(publicRoot, asset.output);
-  const sourceOk = [resolve(root, 'assets/characters'), resolve(root, 'assets/backgrounds')].some((base) => {
+  const sourceOk = [resolve(root, 'assets/characters'), resolve(root, 'assets/backgrounds'), resolve(root, 'assets/effects'), resolve(root, 'assets/tilesets')].some((base) => {
     const rel = relative(base, source);
     return !rel.startsWith('..') && !isAbsolute(rel);
   });

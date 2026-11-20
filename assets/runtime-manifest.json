@@ -63,6 +63,53 @@
       "height": 1536
     },
     {
+      "id": "k-walk-down-48px",
+      "source": "assets/characters/k/k-walk-down-48px.png",
+      "output": "characters/k/k-walk-down-48px.png",
+      "width": 192,
+      "height": 48,
+      "frameWidth": 48,
+      "frameHeight": 48,
+      "frames": 4
+    },
+    {
+      "id": "k-walk-left-48px",
+      "source": "assets/characters/k/k-walk-left-48px.png",
+      "output": "characters/k/k-walk-left-48px.png",
+      "width": 192,
+      "height": 48,
+      "frameWidth": 48,
+      "frameHeight": 48,
+      "frames": 4
+    },
+    {
+      "id": "k-walk-right-48px",
+      "source": "assets/characters/k/k-walk-right-48px.png",
+      "output": "characters/k/k-walk-right-48px.png",
+      "width": 192,
+      "height": 48,
+      "frameWidth": 48,
+      "frameHeight": 48,
+      "frames": 4
+    },
+    {
+      "id": "k-walk-up-48px",
+      "source": "assets/characters/k/k-walk-up-48px.png",
+      "output": "characters/k/k-walk-up-48px.png",
+      "width": 192,
+      "height": 48,
+      "frameWidth": 48,
+      "frameHeight": 48,
+      "frames": 4
+    },
+    {
+      "id": "k-combat-action",
+      "source": "assets/characters/k/k-combat-action.png",
+      "output": "characters/k/k-combat-action.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
       "id": "kingsley-interaction-sprites-48px",
       "source": "assets/characters/kingsley/kingsley-interaction-sprites-48px.png",
       "output": "characters/kingsley/kingsley-interaction-sprites-48px.png",
@@ -192,6 +239,236 @@
       "width": 1024,
       "height": 1536
     },
+    {
+      "id": "lina-idle-48px",
+      "source": "assets/characters/lina/lina-idle-48px.png",
+      "output": "characters/lina/lina-idle-48px.png",
+      "width": 357,
+      "height": 320
+    },
+    {
+      "id": "lina-walk-48px",
+      "source": "assets/characters/lina/lina-walk-48px.png",
+      "output": "characters/lina/lina-walk-48px.png",
+      "width": 381,
+      "height": 610
+    },
+    {
+      "id": "lina-shelter-48px",
+      "source": "assets/characters/lina/lina-shelter-48px.png",
+      "output": "characters/lina/lina-shelter-48px.png",
+      "width": 327,
+      "height": 134
+    },
+    {
+      "id": "scout-idle-4dir-48px",
+      "source": "assets/characters/scout/scout-idle-4dir-48px.png",
+      "output": "characters/scout/scout-idle-4dir-48px.png",
+      "width": 192,
+      "height": 48,
+      "frameWidth": 48,
+      "frameHeight": 48,
+      "frames": 4
+    },
+    {
+      "id": "scout-windup-4dir-48px",
+      "source": "assets/characters/scout/scout-windup-4dir-48px.png",
+      "output": "characters/scout/scout-windup-4dir-48px.png",
+      "width": 192,
+      "height": 48,
+      "frameWidth": 48,
+      "frameHeight": 48,
+      "frames": 4
+    },
+    {
+      "id": "scout-recoil-4dir-48px",
+      "source": "assets/characters/scout/scout-recoil-4dir-48px.png",
+      "output": "characters/scout/scout-recoil-4dir-48px.png",
+      "width": 192,
+      "height": 48,
+      "frameWidth": 48,
+      "frameHeight": 48,
+      "frames": 4
+    },
+    {
+      "id": "scout-disabled-4dir-48px",
+      "source": "assets/characters/scout/scout-disabled-4dir-48px.png",
+      "output": "characters/scout/scout-disabled-4dir-48px.png",
+      "width": 192,
+      "height": 48,
+      "frameWidth": 48,
+      "frameHeight": 48,
+      "frames": 4
+    },
+    {
+      "id": "rusher-idle-4dir-48px",
+      "source": "assets/characters/rusher/rusher-idle-4dir-48px.png",
+      "output": "characters/rusher/rusher-idle-4dir-48px.png",
+      "width": 192,
+      "height": 48,
+      "frameWidth": 48,
+      "frameHeight": 48,
+      "frames": 4
+    },
+    {
+      "id": "rusher-windup-4dir-48px",
+      "source": "assets/characters/rusher/rusher-windup-4dir-48px.png",
+      "output": "characters/rusher/rusher-windup-4dir-48px.png",
+      "width": 192,
+      "height": 48,
+      "frameWidth": 48,
+      "frameHeight": 48,
+      "frames": 4
+    },
+    {
+      "id": "rusher-charge-4dir-48px",
+      "source": "assets/characters/rusher/rusher-charge-4dir-48px.png",
+      "output": "characters/rusher/rusher-charge-4dir-48px.png",
+      "width": 192,
+      "height": 48,
+      "frameWidth": 48,
+      "frameHeight": 48,
+      "frames": 4
+    },
+    {
+      "id": "rusher-recovery-4dir-48px",
+      "source": "assets/characters/rusher/rusher-recovery-4dir-48px.png",
+      "output": "characters/rusher/rusher-recovery-4dir-48px.png",
+      "width": 192,
+      "height": 48,
+      "frameWidth": 48,
+      "frameHeight": 48,
+      "frames": 4
+    },
+    {
+      "id": "breach-machine-48px-4x4",
+      "source": "assets/characters/breach-machine/breach-machine-48px-4x4.png",
+      "output": "characters/breach-machine/breach-machine-48px-4x4.png",
+      "width": 192,
+      "height": 192,
+      "frameWidth": 48,
+      "frameHeight": 48,
+      "frames": 16
+    },
+    {
+      "id": "camp-civilian-a-idle",
+      "source": "assets/characters/camp-civilian/camp-civilian-a-idle.png",
+      "output": "characters/camp-civilian/camp-civilian-a-idle.png",
+      "width": 48,
+      "height": 48
+    },
+    {
+      "id": "camp-civilian-b-idle",
+      "source": "assets/characters/camp-civilian/camp-civilian-b-idle.png",
+      "output": "characters/camp-civilian/camp-civilian-b-idle.png",
+      "width": 48,
+      "height": 48
+    },
+    {
+      "id": "muzzle-flash-01-48px",
+      "source": "assets/effects/muzzle-flash-01-48px.png",
+      "output": "effects/muzzle-flash-01-48px.png",
+      "width": 48,
+      "height": 48
+    },
+    {
+      "id": "muzzle-flash-02-48px",
+      "source": "assets/effects/muzzle-flash-02-48px.png",
+      "output": "effects/muzzle-flash-02-48px.png",
+      "width": 48,
+      "height": 48
+    },
+    {
+      "id": "muzzle-flash-03-48px",
+      "source": "assets/effects/muzzle-flash-03-48px.png",
+      "output": "effects/muzzle-flash-03-48px.png",
+      "width": 48,
+      "height": 48
+    },
+    {
+      "id": "muzzle-flash-04-48px",
+      "source": "assets/effects/muzzle-flash-04-48px.png",
+      "output": "effects/muzzle-flash-04-48px.png",
+      "width": 48,
+      "height": 48
+    },
+    {
+      "id": "c01-courtyard-reveal",
+      "source": "assets/backgrounds/c01-courtyard-reveal.png",
+      "output": "backgrounds/c01-courtyard-reveal.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "id": "c01-bracelet-fall",
+      "source": "assets/backgrounds/c01-bracelet-fall.png",
+      "output": "backgrounds/c01-bracelet-fall.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "id": "c02-barrier-arrival",
+      "source": "assets/backgrounds/c02-barrier-arrival.png",
+      "output": "backgrounds/c02-barrier-arrival.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "id": "c02-machine-silhouette",
+      "source": "assets/backgrounds/c02-machine-silhouette.png",
+      "output": "backgrounds/c02-machine-silhouette.png",
+      "width": 1642,
+      "height": 958
+    },
+    {
+      "id": "c02-scan-base",
+      "source": "assets/backgrounds/c02-scan-base.png",
+      "output": "backgrounds/c02-scan-base.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "id": "c02-retrieval",
+      "source": "assets/backgrounds/c02-retrieval.png",
+      "output": "backgrounds/c02-retrieval.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "id": "c03-cebu-skyline",
+      "source": "assets/backgrounds/c03-cebu-skyline.png",
+      "output": "backgrounds/c03-cebu-skyline.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "id": "c04-k-protects-lina",
+      "source": "assets/backgrounds/c04-k-protects-lina.png",
+      "output": "backgrounds/c04-k-protects-lina.png",
+      "width": 1642,
+      "height": 958
+    },
+    {
+      "id": "c04-extraction",
+      "source": "assets/backgrounds/c04-extraction.png",
+      "output": "backgrounds/c04-extraction.png",
+      "width": 1672,
+      "height": 941
+    },
+    {
+      "id": "chapter-one-ending",
+      "source": "assets/backgrounds/chapter-one-ending.png",
+      "output": "backgrounds/chapter-one-ending.png",
+      "width": 1642,
+      "height": 958
+    },
+    {
+          "id": "sidewalk-tileset",
+          "source": "assets/tilesets/sidewalk-tileset.png",
+          "output": "tilesets/sidewalk-tileset.png",
+          "width": 1536,
+          "height": 1024
+        },
     {
       "id": "default-background",
       "source": "assets/backgrounds/default-background.png",

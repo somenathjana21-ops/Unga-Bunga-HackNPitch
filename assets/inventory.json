@@ -399,6 +399,244 @@
       "height": 720,
       "bytes": 7434,
       "usageRights": "temporary placeholder"
+    },
+    {
+      "source": "assets/characters/k/k-walk-down-48px.png",
+      "width": 192,
+      "height": 48,
+      "bytes": 5832,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/characters/k/k-walk-left-48px.png",
+      "width": 192,
+      "height": 48,
+      "bytes": 6192,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/characters/k/k-walk-right-48px.png",
+      "width": 192,
+      "height": 48,
+      "bytes": 5868,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/characters/k/k-walk-up-48px.png",
+      "width": 192,
+      "height": 48,
+      "bytes": 5529,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/characters/k/k-combat-action.png",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 2059224,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/characters/lina/lina-idle-48px.png",
+      "width": 357,
+      "height": 320,
+      "bytes": 199652,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/characters/lina/lina-walk-48px.png",
+      "width": 381,
+      "height": 610,
+      "bytes": 371663,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/characters/lina/lina-shelter-48px.png",
+      "width": 327,
+      "height": 134,
+      "bytes": 69964,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/characters/scout/scout-idle-4dir-48px.png",
+      "width": 192,
+      "height": 48,
+      "bytes": 8771,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/characters/scout/scout-windup-4dir-48px.png",
+      "width": 192,
+      "height": 48,
+      "bytes": 7927,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/characters/scout/scout-recoil-4dir-48px.png",
+      "width": 192,
+      "height": 48,
+      "bytes": 8312,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/characters/scout/scout-disabled-4dir-48px.png",
+      "width": 192,
+      "height": 48,
+      "bytes": 7198,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/characters/rusher/rusher-idle-4dir-48px.png",
+      "width": 192,
+      "height": 48,
+      "bytes": 20372,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/characters/rusher/rusher-windup-4dir-48px.png",
+      "width": 192,
+      "height": 48,
+      "bytes": 19679,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/characters/rusher/rusher-charge-4dir-48px.png",
+      "width": 192,
+      "height": 48,
+      "bytes": 22459,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/characters/rusher/rusher-recovery-4dir-48px.png",
+      "width": 192,
+      "height": 48,
+      "bytes": 20531,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/characters/breach-machine/breach-machine-48px-4x4.png",
+      "width": 192,
+      "height": 192,
+      "bytes": 42267,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/characters/camp-civilian/camp-civilian-a-idle.png",
+      "width": 48,
+      "height": 48,
+      "bytes": 1913,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/characters/camp-civilian/camp-civilian-b-idle.png",
+      "width": 48,
+      "height": 48,
+      "bytes": 1847,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/effects/muzzle-flash-01-48px.png",
+      "width": 48,
+      "height": 48,
+      "bytes": 1364,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/effects/muzzle-flash-02-48px.png",
+      "width": 48,
+      "height": 48,
+      "bytes": 1398,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/effects/muzzle-flash-03-48px.png",
+      "width": 48,
+      "height": 48,
+      "bytes": 1120,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/effects/muzzle-flash-04-48px.png",
+      "width": 48,
+      "height": 48,
+      "bytes": 673,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/backgrounds/c01-courtyard-reveal.png",
+      "width": 1672,
+      "height": 941,
+      "bytes": 1960629,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/backgrounds/c01-bracelet-fall.png",
+      "width": 1672,
+      "height": 941,
+      "bytes": 1614098,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/backgrounds/c02-barrier-arrival.png",
+      "width": 1672,
+      "height": 941,
+      "bytes": 1774533,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/backgrounds/c02-machine-silhouette.png",
+      "width": 1642,
+      "height": 958,
+      "bytes": 1804525,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/backgrounds/c02-scan-base.png",
+      "width": 1672,
+      "height": 941,
+      "bytes": 1797125,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/backgrounds/c02-retrieval.png",
+      "width": 1672,
+      "height": 941,
+      "bytes": 2418863,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/backgrounds/c03-cebu-skyline.png",
+      "width": 1672,
+      "height": 941,
+      "bytes": 2464070,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/backgrounds/c04-k-protects-lina.png",
+      "width": 1642,
+      "height": 958,
+      "bytes": 2277285,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/backgrounds/c04-extraction.png",
+      "width": 1672,
+      "height": 941,
+      "bytes": 2573759,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/backgrounds/chapter-one-ending.png",
+      "width": 1642,
+      "height": 958,
+      "bytes": 2972699,
+      "usageRights": "generated"
+    },
+    {
+      "source": "assets/tilesets/sidewalk-tileset.png",
+      "width": 1536,
+      "height": 1024,
+      "bytes": 1687135,
+      "usageRights": "generated"
     }
   ]
 }

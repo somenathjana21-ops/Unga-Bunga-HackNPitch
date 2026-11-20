@@ -58,6 +58,16 @@ export class WorldScene extends Phaser.Scene {
         });
       }
     }
+    // K's four-direction walk cycles (4 frames each)
+    const walkDirs = ['down', 'left', 'right', 'up'];
+    for (const dir of walkDirs) {
+      const key = `k-walk-${dir}`;
+      if (!this.textures.exists(key)) {
+        this.load.spritesheet(key, `/assets/characters/k/k-walk-${dir}-48px.png`, {
+          frameWidth: 48, frameHeight: 48,
+        });
+      }
+    }
     // Portrait images for dialogue
     const portraits = [
       { id: 'k', path: '/assets/characters/k/k-speaking-pose.png' },
@@ -256,6 +266,28 @@ export class WorldScene extends Phaser.Scene {
       this.tile.y * TILE_SIZE + 24,
       'sprite-k', 0,
     ).setDepth(10);
+
+    // Create walk animations for K (if not already created)
+    const walkDirs = ['down', 'left', 'right', 'up'];
+    for (const dir of walkDirs) {
+      const animKey = `k-walk-${dir}`;
+      if (!this.anims.exists(animKey)) {
+        this.anims.create({
+          key: animKey,
+          frames: this.anims.generateFrameNumbers(`k-walk-${dir}`, { start: 0, end: 3 }),
+          frameRate: 8,
+          repeat: -1,
+        });
+      }
+    }
+    // Idle animation (use first frame of down walk or interaction sheet)
+    if (!this.anims.exists('k-idle')) {
+      this.anims.create({
+        key: 'k-idle',
+        frames: [{ key: 'sprite-k', frame: 0 }],
+        frameRate: 1,
+      });
+    }
   }
 
   private createObjectiveUI() {
@@ -295,11 +327,28 @@ export class WorldScene extends Phaser.Scene {
     else if (this.keys.A.isDown || this.keys.LEFT.isDown) dx = -1;
     else if (this.keys.D.isDown || this.keys.RIGHT.isDown) dx = 1;
 
-    if ((!dx && !dy) || !canWalkTo(this.map, this.tile.x + dx, this.tile.y + dy)) return;
+    if ((!dx && !dy) || !canWalkTo(this.map, this.tile.x + dx, this.tile.y + dy)) {
+      // Not moving - play idle
+      if (this.player.anims.currentAnim?.key !== 'k-idle') {
+        this.player.play('k-idle');
+      }
+      return;
+    }
+
+    // Determine walk direction for animation
+    let walkAnim = 'k-walk-down';
+    if (dx === -1) walkAnim = 'k-walk-left';
+    else if (dx === 1) walkAnim = 'k-walk-right';
+    else if (dy === -1) walkAnim = 'k-walk-up';
+    else if (dy === 1) walkAnim = 'k-walk-down';
 
     this.tile.x += dx;
     this.tile.y += dy;
     this.moving = true;
+
+    // Play walk animation
+    this.player.play(walkAnim);
+
     this.tweens.add({
       targets: this.player,
       x: this.tile.x * TILE_SIZE + 24,
@@ -307,6 +356,8 @@ export class WorldScene extends Phaser.Scene {
       duration: 170,
       onComplete: () => {
         this.moving = false;
+        // Return to idle
+        this.player.play('k-idle');
         this.checkTriggers();
         this.checkDoors();
         this.updatePrompt();

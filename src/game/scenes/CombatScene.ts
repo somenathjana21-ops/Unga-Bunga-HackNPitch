@@ -44,8 +44,8 @@ export class CombatScene extends Phaser.Scene {
   private hitTextEndTime = 0;
 
   private keys!: Record<string, Phaser.Input.Keyboard.Key>;
-  private playerSprite!: Phaser.GameObjects.Ellipse;
-  private enemyGraphics = new Map<string, Phaser.GameObjects.Ellipse>();
+  private playerSprite!: Phaser.GameObjects.Sprite;
+  private enemySprites = new Map<string, Phaser.GameObjects.Sprite>();
   private bulletGraphics = new Map<string, Phaser.GameObjects.Arc>();
   private coverGraphics!: Phaser.GameObjects.Graphics;
   private telegraphGraphics!: Phaser.GameObjects.Graphics;
@@ -64,8 +64,40 @@ export class CombatScene extends Phaser.Scene {
   private now(time: number): number { return time - this.pausedOffset; }
 
   preload() {
-    // Intentional placeholder rendering only: no combat art is supplied yet, so
-    // entities are drawn with graphics primitives and labelled temporary.
+    // Load combat sprites
+    // Player (K) - use interaction sheet for now
+    if (!this.textures.exists('sprite-k')) {
+      this.load.spritesheet('sprite-k', '/assets/characters/k/k-interaction-sprites-48px.png', {
+        frameWidth: 48, frameHeight: 48,
+      });
+    }
+    // Scout sprites (4 directions each, 4 frames)
+    const scoutStates = ['idle', 'windup', 'recoil', 'disabled'];
+    for (const state of scoutStates) {
+      const key = `scout-${state}`;
+      if (!this.textures.exists(key)) {
+        this.load.spritesheet(key, `/assets/characters/scout/scout-${state}-4dir-48px.png`, {
+          frameWidth: 48, frameHeight: 48,
+        });
+      }
+    }
+    // Rusher sprites
+    const rusherStates = ['idle', 'windup', 'charge', 'recovery'];
+    for (const state of rusherStates) {
+      const key = `rusher-${state}`;
+      if (!this.textures.exists(key)) {
+        this.load.spritesheet(key, `/assets/characters/rusher/rusher-${state}-4dir-48px.png`, {
+          frameWidth: 48, frameHeight: 48,
+        });
+      }
+    }
+    // Muzzle flashes
+    for (let i = 1; i <= 4; i++) {
+      const key = `muzzle-flash-${i.toString().padStart(2, '0')}`;
+      if (!this.textures.exists(key)) {
+        this.load.image(key, `/assets/effects/muzzle-flash-${i.toString().padStart(2, '0')}-48px.png`);
+      }
+    }
   }
 
   create() {
@@ -97,17 +129,14 @@ export class CombatScene extends Phaser.Scene {
     this.coverGraphics.fillStyle(0x4a5568);
     for (const c of this.cover) this.coverGraphics.fillRect(c.x, c.y, c.w, c.h);
 
-    // Player (temporary placeholder: blue ellipse, not the interaction pose sheet).
+    // Player (using interaction sheet sprite)
     this.player.x = width * 0.22;
     this.player.y = height * 0.5;
-    this.playerSprite = this.add.ellipse(
+    this.playerSprite = this.add.sprite(
       this.player.x,
       this.player.y,
-      PLAYER_RADIUS * 2,
-      PLAYER_RADIUS * 2,
-      0x4cc9f0,
-    );
-    this.playerSprite.setDepth(50);
+      'sprite-k', 0,
+    ).setDisplaySize(PLAYER_RADIUS * 2, PLAYER_RADIUS * 2).setDepth(50);
 
     // Telegraph overlay (warning lines).
     this.telegraphGraphics = this.add.graphics();
@@ -478,8 +507,8 @@ export class CombatScene extends Phaser.Scene {
 
     this.enemies = [];
     this.bullets = [];
-    this.enemyGraphics.forEach((g) => g.destroy());
-    this.enemyGraphics.clear();
+    this.enemySprites.forEach((s) => s.destroy());
+    this.enemySprites.clear();
     this.bulletGraphics.forEach((g) => g.destroy());
     this.bulletGraphics.clear();
 
@@ -523,22 +552,36 @@ export class CombatScene extends Phaser.Scene {
     const liveEnemyIds = new Set<string>();
     for (const e of this.enemies) {
       liveEnemyIds.add(e.id);
-      let g = this.enemyGraphics.get(e.id);
-      if (!g) {
-        g = this.add.ellipse(0, 0, e.radius * 2, e.radius * 2, e.kind === 'scout' ? 0xffffff : 0xfde047);
-        g.setDepth(48);
-        this.enemyGraphics.set(e.id, g);
+      let sprite = this.enemySprites.get(e.id);
+      if (!sprite) {
+        // Create sprite based on enemy kind
+        const textureKey = e.kind === 'scout' ? 'scout-idle' : 'rusher-idle';
+        sprite = this.add.sprite(e.x, e.y, textureKey, 0);
+        sprite.setDisplaySize(e.radius * 2, e.radius * 2);
+        sprite.setDepth(48);
+        this.enemySprites.set(e.id, sprite);
       }
-      g.setPosition(e.x, e.y);
-      g.setFillStyle(e.phase === 'committed' ? 0xf87171 : e.kind === 'scout' ? 0xffffff : 0xfde047);
+      sprite.setPosition(e.x, e.y);
+      // Update texture based on phase
+      if (e.phase === 'committed') {
+        sprite.setTexture(e.kind === 'scout' ? 'scout-recoil' : 'rusher-charge');
+        sprite.setTint(0xf87171);
+      } else if (e.phase === 'telegraph') {
+        sprite.setTexture(e.kind === 'scout' ? 'scout-windup' : 'rusher-windup');
+        sprite.clearTint();
+      } else {
+        sprite.setTexture(e.kind === 'scout' ? 'scout-idle' : 'rusher-idle');
+        sprite.clearTint();
+      }
     }
-    for (const [id, g] of this.enemyGraphics) {
+    for (const [id, sprite] of this.enemySprites) {
       if (!liveEnemyIds.has(id)) {
-        g.destroy();
-        this.enemyGraphics.delete(id);
+        sprite.destroy();
+        this.enemySprites.delete(id);
       }
     }
 
+    // ... rest stays the same for bullets, telegraph, counter
     const liveBulletIds = new Set<string>();
     for (const b of this.bullets) {
       liveBulletIds.add(b.id);

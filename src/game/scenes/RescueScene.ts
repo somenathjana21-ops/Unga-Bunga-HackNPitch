@@ -72,12 +72,12 @@ export class RescueScene extends Phaser.Scene {
   private bullets: CombatBullet[] = [];
   private coverGraphics!: Phaser.GameObjects.Graphics;
   private telegraphGraphics!: Phaser.GameObjects.Graphics;
-  private playerSprite!: Phaser.GameObjects.Ellipse;
-  private linaSprite!: Phaser.GameObjects.Ellipse;
-  private maiSprite!: Phaser.GameObjects.Ellipse;
-  private isshinSprite!: Phaser.GameObjects.Ellipse;
+  private playerSprite!: Phaser.GameObjects.Sprite;
+  private linaSprite!: Phaser.GameObjects.Sprite;
+  private maiSprite!: Phaser.GameObjects.Sprite;
+  private isshinSprite!: Phaser.GameObjects.Sprite;
   private switchSprite!: Phaser.GameObjects.Rectangle;
-  private enemyGraphics = new Map<string, Phaser.GameObjects.Ellipse>();
+  private enemySprites = new Map<string, Phaser.GameObjects.Sprite>();
   private bulletGraphics = new Map<string, Phaser.GameObjects.Arc>();
   private bulletSeq = 0;
   private hitFlash!: Phaser.GameObjects.Rectangle;
@@ -140,8 +140,58 @@ export class RescueScene extends Phaser.Scene {
   private now(time: number): number { return time - this.pausedOffset; }
 
   preload() {
-    // Intentional placeholder rendering only: no rescue art is supplied yet, so
-    // entities are drawn with graphics primitives and labelled temporary.
+    // Load rescue sprites
+    // Player (K) - use interaction sheet
+    if (!this.textures.exists('sprite-k')) {
+      this.load.spritesheet('sprite-k', '/assets/characters/k/k-interaction-sprites-48px.png', {
+        frameWidth: 48, frameHeight: 48,
+      });
+    }
+    // Mai interaction sheet
+    if (!this.textures.exists('sprite-mai')) {
+      this.load.spritesheet('sprite-mai', '/assets/characters/mai/mai-interaction-sprites-48px.png', {
+        frameWidth: 48, frameHeight: 48,
+      });
+    }
+    // Isshin interaction sheet
+    if (!this.textures.exists('sprite-isshin')) {
+      this.load.spritesheet('sprite-isshin', '/assets/characters/isshin/isshin-interaction-sprites-48px.png', {
+        frameWidth: 48, frameHeight: 48,
+      });
+    }
+    // Scout sprites
+    const scoutStates = ['idle', 'windup', 'recoil', 'disabled'];
+    for (const state of scoutStates) {
+      const key = `scout-${state}`;
+      if (!this.textures.exists(key)) {
+        this.load.spritesheet(key, `/assets/characters/scout/scout-${state}-4dir-48px.png`, {
+          frameWidth: 48, frameHeight: 48,
+        });
+      }
+    }
+    // Rusher sprites
+    const rusherStates = ['idle', 'windup', 'charge', 'recovery'];
+    for (const state of rusherStates) {
+      const key = `rusher-${state}`;
+      if (!this.textures.exists(key)) {
+        this.load.spritesheet(key, `/assets/characters/rusher/rusher-${state}-4dir-48px.png`, {
+          frameWidth: 48, frameHeight: 48,
+        });
+      }
+    }
+    // Lina sprites
+    if (!this.textures.exists('lina-idle')) {
+      this.load.image('lina-idle', '/assets/characters/lina/lina-idle-48px.png');
+    }
+    if (!this.textures.exists('lina-shelter')) {
+      this.load.image('lina-shelter', '/assets/characters/lina/lina-shelter-48px.png');
+    }
+    // Breach machine
+    if (!this.textures.exists('breach-machine')) {
+      this.load.spritesheet('breach-machine', '/assets/characters/breach-machine/breach-machine-48px-4x4.png', {
+        frameWidth: 48, frameHeight: 48,
+      });
+    }
   }
 
   create() {
@@ -180,31 +230,27 @@ export class RescueScene extends Phaser.Scene {
     this.coverGraphics.fillStyle(0x4a5568);
     for (const c of COVER) this.coverGraphics.fillRect(c.x, c.y, c.w, c.h);
 
-    // Player (temporary placeholder: blue ellipse).
+    // Player (using interaction sheet sprite)
     this.player.x = PLAYER_START.x;
     this.player.y = PLAYER_START.y;
-    this.playerSprite = this.add.ellipse(
-      this.player.x, this.player.y, PLAYER_RADIUS * 2, PLAYER_RADIUS * 2, 0x4cc9f0,
-    );
-    this.playerSprite.setDepth(50);
+    this.playerSprite = this.add.sprite(
+      this.player.x, this.player.y, 'sprite-k', 0,
+    ).setDisplaySize(PLAYER_RADIUS * 2, PLAYER_RADIUS * 2).setDepth(50);
 
-    // Lina behind shelter cover (temporary placeholder: magenta ellipse).
-    this.linaSprite = this.add.ellipse(
-      this.lina.x, this.lina.y, LINA_RADIUS * 2, LINA_RADIUS * 2, 0xd946ef,
-    );
-    this.linaSprite.setDepth(49);
+    // Lina behind shelter cover (using sprite)
+    this.linaSprite = this.add.sprite(
+      this.lina.x, this.lina.y, 'lina-idle',
+    ).setDisplaySize(LINA_RADIUS * 2, LINA_RADIUS * 2).setDepth(49);
 
-    // Mai at her safe marker (temporary placeholder: cyan ellipse).
-    this.maiSprite = this.add.ellipse(
-      MAI_MARKER.x, MAI_MARKER.y, MAI_RADIUS * 2, MAI_RADIUS * 2, 0x22d3ee,
-    );
-    this.maiSprite.setDepth(49);
+    // Mai at her safe marker (using interaction sheet)
+    this.maiSprite = this.add.sprite(
+      MAI_MARKER.x, MAI_MARKER.y, 'sprite-mai', 0,
+    ).setDisplaySize(MAI_RADIUS * 2, MAI_RADIUS * 2).setDepth(49);
 
-    // Isshin at fixed covering-fire position (temporary placeholder: yellow ellipse).
-    this.isshinSprite = this.add.ellipse(
-      ISSHIN_POS.x, ISSHIN_POS.y, ENEMY_RADIUS * 2, ENEMY_RADIUS * 2, 0xfde047,
-    );
-    this.isshinSprite.setDepth(48);
+    // Isshin at fixed covering-fire position (using interaction sheet)
+    this.isshinSprite = this.add.sprite(
+      ISSHIN_POS.x, ISSHIN_POS.y, 'sprite-isshin', 0,
+    ).setDisplaySize(ENEMY_RADIUS * 2, ENEMY_RADIUS * 2).setDepth(48);
 
     // Extraction switch.
     this.switchSprite = this.add
@@ -744,8 +790,8 @@ export class RescueScene extends Phaser.Scene {
 
     this.enemies = [];
     this.bullets = [];
-    this.enemyGraphics.forEach((g) => g.destroy());
-    this.enemyGraphics.clear();
+    this.enemySprites.forEach((s) => s.destroy());
+    this.enemySprites.clear();
     this.bulletGraphics.forEach((g) => g.destroy());
     this.bulletGraphics.clear();
 
@@ -812,6 +858,9 @@ export class RescueScene extends Phaser.Scene {
 
   private syncGraphics() {
     this.playerSprite.setPosition(this.player.x, this.player.y);
+    // Mai and Isshin are static, but ensure they're positioned
+    this.maiSprite.setPosition(MAI_MARKER.x, MAI_MARKER.y);
+    this.isshinSprite.setPosition(ISSHIN_POS.x, ISSHIN_POS.y);
     this.switchSprite.setPosition(SWITCH_POS.x, SWITCH_POS.y);
     if (this.switchHold.active) {
       this.switchSprite.setFillStyle(0xfde047);
@@ -822,19 +871,32 @@ export class RescueScene extends Phaser.Scene {
     const liveEnemyIds = new Set<string>();
     for (const e of this.enemies) {
       liveEnemyIds.add(e.id);
-      let g = this.enemyGraphics.get(e.id);
-      if (!g) {
-        g = this.add.ellipse(0, 0, e.radius * 2, e.radius * 2, e.kind === 'scout' ? 0xffffff : 0xfde047);
-        g.setDepth(48);
-        this.enemyGraphics.set(e.id, g);
+      let sprite = this.enemySprites.get(e.id);
+      if (!sprite) {
+        // Create sprite based on enemy kind
+        const textureKey = e.kind === 'scout' ? 'scout-idle' : 'rusher-idle';
+        sprite = this.add.sprite(e.x, e.y, textureKey, 0);
+        sprite.setDisplaySize(e.radius * 2, e.radius * 2);
+        sprite.setDepth(48);
+        this.enemySprites.set(e.id, sprite);
       }
-      g.setPosition(e.x, e.y);
-      g.setFillStyle(e.phase === 'committed' ? 0xf87171 : e.kind === 'scout' ? 0xffffff : 0xfde047);
+      sprite.setPosition(e.x, e.y);
+      // Update texture based on phase
+      if (e.phase === 'committed') {
+        sprite.setTexture(e.kind === 'scout' ? 'scout-recoil' : 'rusher-charge');
+        sprite.setTint(0xf87171);
+      } else if (e.phase === 'telegraph') {
+        sprite.setTexture(e.kind === 'scout' ? 'scout-windup' : 'rusher-windup');
+        sprite.clearTint();
+      } else {
+        sprite.setTexture(e.kind === 'scout' ? 'scout-idle' : 'rusher-idle');
+        sprite.clearTint();
+      }
     }
-    for (const [id, g] of this.enemyGraphics) {
+    for (const [id, sprite] of this.enemySprites) {
       if (!liveEnemyIds.has(id)) {
-        g.destroy();
-        this.enemyGraphics.delete(id);
+        sprite.destroy();
+        this.enemySprites.delete(id);
       }
     }
 
@@ -876,9 +938,9 @@ export class RescueScene extends Phaser.Scene {
 
     // Lina flash when safe.
     if (this.lina.phase === 'safe') {
-      this.linaSprite.setFillStyle(0x86efac);
+      this.linaSprite.setTint(0x86efac);
     } else {
-      this.linaSprite.setFillStyle(0xd946ef);
+      this.linaSprite.clearTint();
     }
   }
 
