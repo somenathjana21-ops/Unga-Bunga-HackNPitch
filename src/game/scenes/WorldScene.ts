@@ -119,7 +119,16 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private switchRoom(id: string) {
-    this.room = getRoom(id);
+    let target: typeof this.room;
+    try {
+      target = getRoom(id);
+    } catch {
+      // Unknown or missing map IDs fail visibly (console message) rather than
+      // crashing the scene; the player stays in the current room.
+      console.error(`[WorldScene] unknown map room: ${id}`);
+      return;
+    }
+    this.room = target;
     this.tile = { x: this.room.spawnX, y: this.room.spawnY };
     this.facing = 'down';
     this.moving = false;
