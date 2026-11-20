@@ -76,6 +76,8 @@
     <script>
       // Show a readable failure screen instead of a blank canvas if a module fails.
       window.addEventListener("error", function (event) {
+        // After boot, leave the canvas alone; runtime errors belong in the console.
+        if (document.documentElement.dataset.wantReady === "true") return;
         const panel = document.getElementById("boot-error");
         if (!panel) return;
         panel.hidden = false;
