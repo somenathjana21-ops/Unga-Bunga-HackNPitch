@@ -8,6 +8,12 @@ const devCombatButton = import.meta.env.DEV
   ? '<button id="dev-combat-test" class="secondary">Combat test (dev)</button>'
   : '';
 
+// Development-only launch path for the rescue mission slice. Never shipped in the
+// production build and never touches the story preview routing.
+const devRescueButton = import.meta.env.DEV
+  ? '<button id="dev-rescue-test" class="secondary">Rescue test (dev)</button>'
+  : '';
+
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <main class="shell">
     <section class="menu" id="menu" aria-labelledby="title">
@@ -26,6 +32,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
           <button id="start-preview" class="primary">Explore the preview <span aria-hidden="true">↗</span></button>
           <button id="open-controls" class="secondary">Controls & accessibility</button>
           {devCombatButton}
+          {devRescueButton}
         </div>
         <p class="build-note">Foundation preview · Story campaign in development</p>
       </div>
@@ -73,7 +80,7 @@ document.querySelectorAll<HTMLInputElement>('input[name="difficulty"]').forEach(
   });
 });
 
-async function launchGame(sceneKey: 'preview' | 'combat', modeLabel: string) {
+async function launchGame(sceneKey: 'preview' | 'combat' | 'rescue', modeLabel: string) {
   if (launching || game) return;
   launching = true;
   start.disabled = true;
@@ -109,7 +116,25 @@ if (import.meta.env.DEV) {
   devCombat?.addEventListener('click', async () => {
     await launchGame('combat', 'Combat test (dev) · Story Mode');
   });
+  const devRescue = document.querySelector<HTMLButtonElement>('#dev-rescue-test');
+  devRescue?.addEventListener('click', async () => {
+    const difficulty = document.querySelector<HTMLInputElement>('input[name="difficulty"]:checked')!.value as Difficulty;
+    await launchGame('rescue', `Rescue mission · ${difficultyRules[difficulty].label}`);
+  });
 }
+
+// A finished rescue (Game Over return-to-title, or ending finish) brings the
+// menu back. Story routing and Continue are owned by Phase 6.
+window.addEventListener('want:return-to-title', () => {
+  game?.destroy(true);
+  game = undefined;
+  preview.hidden = true;
+  menu.hidden = false;
+  errorBox.hidden = true;
+  start.disabled = false;
+  start.textContent = 'Explore the preview ↗';
+  start.focus();
+});
 
 document.querySelector('#back-to-menu')!.addEventListener('click', () => {
   game?.destroy(true);

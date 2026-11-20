@@ -1,12 +1,14 @@
 import Phaser from 'phaser';
 import { PreviewScene } from './scenes/PreviewScene';
 import { CombatScene } from './scenes/CombatScene';
+import { RescueScene } from './scenes/RescueScene';
 
-type SceneKey = 'preview' | 'combat';
+type SceneKey = 'preview' | 'combat' | 'rescue';
 
 const SCENES: Record<SceneKey, new () => Phaser.Scene> = {
   preview: PreviewScene,
   combat: CombatScene,
+  rescue: RescueScene,
 };
 
 export function createGame(parent: HTMLElement, sceneKey: SceneKey = 'preview'): Phaser.Game {
