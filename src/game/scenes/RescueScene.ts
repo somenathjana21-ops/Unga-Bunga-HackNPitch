@@ -35,7 +35,7 @@ const MAI_RADIUS = 10;
 const COVER: CoverRect[] = [
   { x: ARENA_W * 0.5 - 90, y: ARENA_H * 0.5 - 60, w: 120, h: 100 }, // shelter cover
   { x: ARENA_W * 0.5 - 200, y: ARENA_H * 0.5 + 55, w: 80, h: 90 },
-  { x: ARENA_W * 0.5 + 150, y: ARENA_W * 0.5 - 95, w: 90, h: 80 },
+  { x: ARENA_W * 0.5 + 150, y: ARENA_H * 0.5 - 95, w: 90, h: 80 },
 ];
 
 // Scripted positions for the rescue cast. All are placeholders labelled
@@ -130,6 +130,10 @@ export class RescueScene extends Phaser.Scene {
     // A failed rescue that was saved must not be resurrected on reload.
     if (this.state.rescueStatus === 'failed') {
       this.defeated = true;
+    } else if (this.state.rescueStatus === 'not-started') {
+      // Entering the mission marks it active so a later lethal hit is recorded
+      // as a failed rescue (and reloads as Game Over) rather than left un-started.
+      this.state = { ...this.state, rescueStatus: 'active' };
     }
   }
 
