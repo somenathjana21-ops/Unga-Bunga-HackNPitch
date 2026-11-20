@@ -2,8 +2,19 @@ import Phaser from 'phaser';
 import { PreviewScene } from './scenes/PreviewScene';
 import { WorldScene } from './scenes/WorldScene';
 import { DialogueScene } from './scenes/DialogueScene';
+import { CombatScene } from './scenes/CombatScene';
+import { RescueScene } from './scenes/RescueScene';
 import type { Difficulty } from './rules';
 import type { RunState } from './state';
+
+type SceneKey = 'preview' | 'world' | 'combat' | 'rescue';
+
+const SCENES: Record<SceneKey, new () => Phaser.Scene> = {
+  preview: PreviewScene,
+  world: WorldScene,
+  combat: CombatScene,
+  rescue: RescueScene,
+};
 
 // Development route: `?world` starts the Phase 1 campus slice instead of the
 // foundation preview. The preview remains the default menu entry point.
@@ -11,13 +22,14 @@ const startWorld = new URLSearchParams(window.location.search).has('world');
 
 export function createGame(
   parent: HTMLElement,
+  sceneKey: SceneKey = startWorld ? 'world' : 'preview',
   difficulty: Difficulty = 'story',
   initialState?: RunState,
 ): Phaser.Game {
+  const Scene = SCENES[sceneKey];
   // Phaser auto-starts only the first scene given, so ordering controls which
-  // scene enters first. The preview stays the default menu route; `?world`
-  // opts into the Phase 1 campus slice as a development route.
-  const scenes = startWorld ? [WorldScene, DialogueScene, PreviewScene] : [PreviewScene, WorldScene, DialogueScene];
+  // scene enters first. All campaign scenes are registered so they can be
+  // launched by key from world/combat/rescue code.
   return new Phaser.Game({
     type: Phaser.AUTO,
     parent,
@@ -26,7 +38,7 @@ export function createGame(
     backgroundColor: '#171d24',
     pixelArt: true,
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
-    scene: scenes,
+    scene: [Scene, WorldScene, DialogueScene, CombatScene, RescueScene, PreviewScene],
     audio: { noAudio: true },
     callbacks: {
       preBoot: (game) => {

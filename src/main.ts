@@ -6,6 +6,16 @@ import { openSettingsPanel } from './ui/settings-panel';
 import { loadPreferences, savePreferences, DEFAULT_PREFERENCES } from './services/preferences';
 import { audio } from './services/audio';
 
+// Development-only launch paths for isolated combat/rescue slices. Never shipped
+// in the production build and never touch the story preview routing.
+const devCombatButton = import.meta.env.DEV
+  ? '<button id="dev-combat-test" class="secondary">Combat test (dev)</button>'
+  : '';
+
+const devRescueButton = import.meta.env.DEV
+  ? '<button id="dev-rescue-test" class="secondary">Rescue test (dev)</button>'
+  : '';
+
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <main class="shell">
     <section class="menu" id="menu" aria-labelledby="title">
@@ -24,6 +34,8 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
           <button id="start-campaign" class="primary">Begin the story <span aria-hidden="true">↗</span></button>
           <button id="open-settings" class="secondary">Settings &amp; accessibility</button>
           <button id="open-controls" class="secondary">Controls &amp; accessibility</button>
+          {devCombatButton}
+          {devRescueButton}
         </div>
         <p class="build-note">Chapter One · The Wrong Person</p>
       </div>
@@ -122,7 +134,7 @@ const bindUnlock = (element: HTMLElement): void => {
 bindUnlock(start);
 bindUnlock(settingsBtn);
 
-start.addEventListener('click', async () => {
+async function launchGame(sceneKey: 'preview' | 'world' | 'combat' | 'rescue', modeLabel: string): Promise<void> {
   if (launching || game) return;
   launching = true;
   start.disabled = true;
@@ -131,10 +143,10 @@ start.addEventListener('click', async () => {
   try {
     const { createGame } = await import('./game/create-game');
     const difficulty = document.querySelector<HTMLInputElement>('input[name="difficulty"]:checked')!.value as Difficulty;
-    document.querySelector('#mode-label')!.textContent = `${difficultyRules[difficulty].label} · Chapter One`;
+    document.querySelector('#mode-label')!.textContent = modeLabel;
     menu.hidden = true;
     preview.hidden = false;
-    game = createGame(gameHost, difficulty);
+    game = createGame(gameHost, sceneKey, difficulty);
     preview.scrollIntoView({ block: 'start' });
     gameHost.focus({ preventScroll: true });
   } catch {
@@ -147,6 +159,35 @@ start.addEventListener('click', async () => {
     start.disabled = false;
     start.textContent = 'Begin the story ↗';
   }
+}
+
+start.addEventListener('click', async () => {
+  await launchGame('world', 'Chapter One · The Wrong Person');
+});
+
+if (import.meta.env.DEV) {
+  const devCombat = document.querySelector<HTMLButtonElement>('#dev-combat-test');
+  devCombat?.addEventListener('click', async () => {
+    await launchGame('combat', 'Combat test (dev) · Story Mode');
+  });
+  const devRescue = document.querySelector<HTMLButtonElement>('#dev-rescue-test');
+  devRescue?.addEventListener('click', async () => {
+    const difficulty = document.querySelector<HTMLInputElement>('input[name="difficulty"]:checked')!.value as Difficulty;
+    await launchGame('rescue', `Rescue mission · ${difficultyRules[difficulty].label}`);
+  });
+}
+
+// A finished rescue (Game Over return-to-title, or ending finish) brings the
+// menu back. Story routing and Continue are owned by Phase 6.
+window.addEventListener('want:return-to-title', () => {
+  game?.destroy(true);
+  game = undefined;
+  preview.hidden = true;
+  menu.hidden = false;
+  errorBox.hidden = true;
+  start.disabled = false;
+  start.textContent = 'Begin the story ↗';
+  start.focus();
 });
 
 document.querySelector('#back-to-menu')!.addEventListener('click', () => {
