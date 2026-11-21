@@ -1,6 +1,6 @@
 // Horde Mode Setup + Scoreboard + Post-Run Results UI.
-// Asks for the player's name before launching, exposes 1m / 5m / Unlimited and
-// Easy / Medium / Hard / Maniac / DOOM (10-fold difficulty scaling per tier),
+// Asks for the player's name before launching, exposes 4 Arena Maps (+ Random),
+// 1m / 5m / Unlimited, and Easy / Medium / Hard / Maniac / DOOM (10-fold scaling),
 // and renders the persisted local scoreboard.
 
 import {
@@ -10,10 +10,16 @@ import {
   formatScore,
   hordeDifficultyRules,
   hordeDurationRules,
+  hordeHitsToFall,
   normalizePlayerName,
   type HordeDifficulty,
   type HordeDuration,
 } from '../game/horde/rules';
+import {
+  HORDE_MAP_IDS,
+  hordeMaps,
+  type HordeMapChoice,
+} from '../game/horde/maps';
 import type { HordeConfig, HordeRunResult } from '../game/scenes/HordeScene';
 import {
   filterHordeScores,
@@ -63,19 +69,20 @@ function renderScoreRows(
       </tr>
     `;
   }
-  return scores.slice(0, 12).map((entry, index) => {
+  return scores.slice(0, 10).map((entry, index) => {
     const diff = hordeDifficultyRules[entry.difficulty];
     const dur = hordeDurationRules[entry.duration];
+    const mapShort = entry.mapId ? hordeMaps[entry.mapId].shortName : 'Warehouse';
     const isCurrent = highlightId
       ? entry.id === highlightId
       : Boolean(highlightPlayer && entry.playerName.toLowerCase() === highlightPlayer.toLowerCase());
-    const outcome = entry.cleared ? 'Cleared' : `Wave ${entry.waveReached}`;
+    const outcome = entry.cleared ? 'Cleared' : `W${entry.waveReached}`;
     return `
       <tr class="${isCurrent ? 'is-highlight' : ''}">
         <td class="num">#${index + 1}</td>
         <td class="player-cell">${escapeHtml(entry.playerName)}</td>
         <td><span class="diff-label" style="color:${diff.accentHex}">${diff.label}</span></td>
-        <td>${dur.label} · ${outcome}</td>
+        <td>${mapShort} · ${dur.label} · ${outcome}</td>
         <td class="num">${entry.kills} (${formatHordeClock(entry.survivedSeconds)})</td>
         <td class="num score-cell">${formatScore(entry.score)}</td>
       </tr>
@@ -87,16 +94,17 @@ function renderScoreRows(
 export function mountHordeLobby(host: HTMLElement, options: HordeLobbyOptions): { refresh: () => void } {
   let selectedDifficulty: HordeDifficulty = 'easy';
   let selectedDuration: HordeDuration = '1m';
+  let selectedMap: HordeMapChoice = 'warehouse';
   let scoreFilter: HordeDifficulty | 'all' = 'all';
 
   host.innerHTML = `
     <div class="horde-lobby">
       <div class="horde-lobby-header">
         <div>
-          <p class="eyebrow">Resistance Trials · Standalone Combat Mode</p>
+          <p class="eyebrow">Resistance Trials · Expanded Arena · Randomized Cover</p>
           <h2 id="horde-title" class="horde-heading">Horde Arena</h2>
           <p class="horde-sub">
-            Survive escalating machine waves. Each tier multiplies threat intensity and score yield tenfold.
+            Empowered loadout scales through Hard; Maniac &amp; DOOM strip sustain for pure skill. Cover randomizes every match.
           </p>
         </div>
         <button type="button" id="horde-back-menu" class="secondary">Back to Title</button>
@@ -104,39 +112,71 @@ export function mountHordeLobby(host: HTMLElement, options: HordeLobbyOptions): 
 
       <div class="horde-grid">
         <form id="horde-setup-form" class="horde-config-panel" novalidate>
-          <div class="horde-field">
-            <label for="horde-player-name" class="horde-label">Player Name</label>
-            <input
-              id="horde-player-name"
-              name="playerName"
-              type="text"
-              maxlength="24"
-              autocomplete="nickname"
-              placeholder="Enter your callsign (e.g. K-85)"
-              class="horde-input"
-              required
-            />
-            <p id="horde-name-error" class="horde-field-error" role="alert" hidden></p>
+          <div class="horde-top-inputs">
+            <div class="horde-field">
+              <label for="horde-player-name" class="horde-label">Player Name</label>
+              <input
+                id="horde-player-name"
+                name="playerName"
+                type="text"
+                maxlength="24"
+                autocomplete="nickname"
+                placeholder="Enter callsign (e.g. K-85)"
+                class="horde-input"
+                required
+              />
+              <p id="horde-name-error" class="horde-field-error" role="alert" hidden></p>
+            </div>
+
+            <div class="horde-field">
+              <span class="horde-label">Time Mode</span>
+              <div class="horde-duration-group" role="group" aria-label="Horde duration">
+                ${HORDE_DURATIONS.map((id) => {
+                  const d = hordeDurationRules[id];
+                  return `
+                    <button
+                      type="button"
+                      class="horde-seg-btn${id === selectedDuration ? ' is-active' : ''}"
+                      data-duration="${id}"
+                      aria-pressed="${id === selectedDuration}"
+                    >
+                      <span class="seg-title">${d.label}</span>
+                      <span class="seg-desc">${d.id === '1m' ? '60s blitz' : d.id === '5m' ? '5m siege' : 'Endless'}</span>
+                    </button>
+                  `;
+                }).join('')}
+              </div>
+            </div>
           </div>
 
           <div class="horde-field">
-            <span class="horde-label">Time Mode</span>
-            <div class="horde-duration-group" role="group" aria-label="Horde duration">
-              ${HORDE_DURATIONS.map((id) => {
-                const d = hordeDurationRules[id];
+            <span class="horde-label">Arena Map · Fresh Randomized Cover Every Match</span>
+            <div class="horde-map-grid" role="group" aria-label="Horde arena map">
+              ${HORDE_MAP_IDS.map((id) => {
+                const m = hordeMaps[id];
                 return `
                   <button
                     type="button"
-                    class="horde-seg-btn${id === selectedDuration ? ' is-active' : ''}"
-                    data-duration="${id}"
-                    aria-pressed="${id === selectedDuration}"
+                    class="horde-map-btn${id === selectedMap ? ' is-active' : ''}"
+                    data-map="${id}"
+                    aria-pressed="${id === selectedMap}"
                   >
-                    <span class="seg-title">${d.label}</span>
-                    <span class="seg-desc">${d.description}</span>
+                    <span class="map-thumb" style="background-image:url('${m.backgroundPath}')"></span>
+                    <span class="map-name">${m.shortName}</span>
                   </button>
                 `;
               }).join('')}
+              <button
+                type="button"
+                class="horde-map-btn horde-map-random"
+                data-map="random"
+                aria-pressed="false"
+              >
+                <span class="map-thumb is-random">?</span>
+                <span class="map-name">Random</span>
+              </button>
             </div>
+            <p id="horde-map-summary" class="horde-diff-summary"></p>
           </div>
 
           <div class="horde-field">
@@ -144,11 +184,11 @@ export function mountHordeLobby(host: HTMLElement, options: HordeLobbyOptions): 
             <div class="horde-diff-grid" role="group" aria-label="Horde difficulty">
               ${HORDE_DIFFICULTIES.map((id) => {
                 const r = hordeDifficultyRules[id];
-                const hits = Math.ceil(100 / r.damagePerHit);
+                const hits = hordeHitsToFall(id);
                 return `
                   <button
                     type="button"
-                    class="horde-diff-btn${id === selectedDifficulty ? ' is-active' : ''}"
+                    class="horde-diff-btn${id === selectedDifficulty ? ' is-active' : ''}${r.skillOnly ? ' is-skill-only' : ''}"
                     data-difficulty="${id}"
                     aria-pressed="${id === selectedDifficulty}"
                     style="--tier-accent:${r.accentHex}"
@@ -157,7 +197,7 @@ export function mountHordeLobby(host: HTMLElement, options: HordeLobbyOptions): 
                       <strong>${r.label}</strong>
                       <span class="diff-mult num">${formatScore(r.difficultyFactor)}×</span>
                     </span>
-                    <span class="diff-meta">${hits} ${hits === 1 ? 'hit' : 'hits'} · Cap ${r.maxActiveEnemies}</span>
+                    <span class="diff-meta">${hits} ${hits === 1 ? 'hit' : 'hits'} · ${r.skillOnly ? 'Skill Only' : `+${r.healPerWave} HP`}</span>
                   </button>
                 `;
               }).join('')}
@@ -193,7 +233,7 @@ export function mountHordeLobby(host: HTMLElement, options: HordeLobbyOptions): 
                   <th class="num">Rank</th>
                   <th>Player</th>
                   <th>Difficulty</th>
-                  <th>Mode</th>
+                  <th>Arena / Mode</th>
                   <th class="num">Kills / Time</th>
                   <th class="num">Score</th>
                 </tr>
@@ -208,6 +248,7 @@ export function mountHordeLobby(host: HTMLElement, options: HordeLobbyOptions): 
 
   const nameInput = host.querySelector<HTMLInputElement>('#horde-player-name')!;
   const nameError = host.querySelector<HTMLElement>('#horde-name-error')!;
+  const mapSummary = host.querySelector<HTMLElement>('#horde-map-summary')!;
   const diffSummary = host.querySelector<HTMLElement>('#horde-diff-summary')!;
   const playerBestEl = host.querySelector<HTMLElement>('#horde-player-best')!;
   const scoresBody = host.querySelector<HTMLElement>('#horde-scores-body')!;
@@ -215,14 +256,26 @@ export function mountHordeLobby(host: HTMLElement, options: HordeLobbyOptions): 
   const form = host.querySelector<HTMLFormElement>('#horde-setup-form')!;
 
   const durationBtns = [...host.querySelectorAll<HTMLButtonElement>('[data-duration]')];
+  const mapBtns = [...host.querySelectorAll<HTMLButtonElement>('[data-map]')];
   const diffBtns = [...host.querySelectorAll<HTMLButtonElement>('[data-difficulty]')];
   const filterBtns = [...host.querySelectorAll<HTMLButtonElement>('[data-filter]')];
 
+  const updateMapSummary = () => {
+    if (selectedMap === 'random') {
+      mapSummary.textContent = 'Random Arena — Picks a surprise sector and fresh randomized cover layout every trial.';
+      return;
+    }
+    const m = hordeMaps[selectedMap];
+    mapSummary.textContent = `${m.name} — ${m.tagline}.`;
+  };
+
   const updateSummary = () => {
     const r = hordeDifficultyRules[selectedDifficulty];
-    const hits = Math.ceil(100 / r.damagePerHit);
-    diffSummary.textContent =
-      `${r.tagline} — Enemy HP ${r.enemyHealth}, active cap ${r.maxActiveEnemies}, ${hits} ${hits === 1 ? 'hit' : 'hits'} before defeat.`;
+    const hits = hordeHitsToFall(selectedDifficulty);
+    const kSpec = r.skillOnly
+      ? `K ${r.playerMaxHealth} HP (${hits} ${hits === 1 ? 'hit' : 'hits'}) · ${r.playerPistolDamage} DMG · Zero Heal (Pure Skill)`
+      : `K ${r.playerMaxHealth} HP (${hits} hits) · ${r.playerPistolDamage} DMG · +${r.healPerWave} HP/wave · +${r.counterKillHeal} HP/counter`;
+    diffSummary.textContent = `${r.label}: ${kSpec} · Enemy HP ${r.enemyHealth}, cap ${r.maxActiveEnemies}.`;
   };
 
   const renderScores = () => {
@@ -255,6 +308,20 @@ export function mountHordeLobby(host: HTMLElement, options: HordeLobbyOptions): 
         b.classList.toggle('is-active', active);
         b.setAttribute('aria-pressed', String(active));
       });
+    });
+  });
+
+  mapBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      audio.unlock();
+      audio.playCue('ui-confirm');
+      selectedMap = btn.dataset.map as HordeMapChoice;
+      mapBtns.forEach((b) => {
+        const active = b.dataset.map === selectedMap;
+        b.classList.toggle('is-active', active);
+        b.setAttribute('aria-pressed', String(active));
+      });
+      updateMapSummary();
     });
   });
 
@@ -312,6 +379,7 @@ export function mountHordeLobby(host: HTMLElement, options: HordeLobbyOptions): 
       playerName,
       difficulty: selectedDifficulty,
       duration: selectedDuration,
+      mapChoice: selectedMap,
     });
   });
 
@@ -320,6 +388,7 @@ export function mountHordeLobby(host: HTMLElement, options: HordeLobbyOptions): 
     if (!nameInput.value && savedName) {
       nameInput.value = savedName;
     }
+    updateMapSummary();
     updateSummary();
     renderScores();
   };
@@ -347,6 +416,7 @@ export function showHordeResults(options: HordeResultOptions): HordeScoreEntry |
     playerName: result.playerName,
     difficulty: result.difficulty,
     duration: result.duration,
+    mapId: result.mapId,
     score: result.score,
     kills: result.kills,
     counterKills: result.counterKills,
@@ -359,6 +429,7 @@ export function showHordeResults(options: HordeResultOptions): HordeScoreEntry |
   const rank = saved ? allScores.findIndex((s) => s.id === saved.id) + 1 : 0;
   const diff = hordeDifficultyRules[result.difficulty];
   const dur = hordeDurationRules[result.duration];
+  const mapDef = hordeMaps[result.mapId];
 
   resultsOverlay = document.createElement('div');
   resultsOverlay.id = 'horde-results';
@@ -370,7 +441,7 @@ export function showHordeResults(options: HordeResultOptions): HordeScoreEntry |
   resultsOverlay.innerHTML = `
     <div class="horde-results-card">
       <p class="eyebrow" style="color:${diff.accentHex}">
-        ${result.cleared ? 'Trial Cleared' : 'Signal Lost'} · ${diff.label} (${formatScore(diff.difficultyFactor)}×) · ${dur.label}
+        ${result.cleared ? 'Trial Cleared' : 'Signal Lost'} · ${mapDef.shortName} · ${diff.label} (${formatScore(diff.difficultyFactor)}×) · ${dur.label}
       </p>
       <h2 id="horde-results-title" class="horde-results-title">
         ${escapeHtml(result.playerName)} — ${formatScore(result.score)} pts
@@ -406,7 +477,7 @@ export function showHordeResults(options: HordeResultOptions): HordeScoreEntry |
               <th class="num">Rank</th>
               <th>Player</th>
               <th>Difficulty</th>
-              <th>Mode</th>
+              <th>Arena / Mode</th>
               <th class="num">Kills / Time</th>
               <th class="num">Score</th>
             </tr>
@@ -418,7 +489,7 @@ export function showHordeResults(options: HordeResultOptions): HordeScoreEntry |
       </div>
 
       <div class="horde-results-actions">
-        <button type="button" id="horde-play-again" class="primary" data-start="true">Play Again</button>
+        <button type="button" id="horde-play-again" class="primary" data-start="true">Play Again (New Cover)</button>
         <button type="button" id="horde-change-setup" class="secondary">Change Setup</button>
         <button type="button" id="horde-return-menu" class="secondary">Return to Title</button>
       </div>
@@ -438,6 +509,7 @@ export function showHordeResults(options: HordeResultOptions): HordeScoreEntry |
       playerName: result.playerName,
       difficulty: result.difficulty,
       duration: result.duration,
+      mapChoice: result.mapId,
     });
   });
 

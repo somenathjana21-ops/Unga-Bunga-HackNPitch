@@ -8,10 +8,27 @@ import {
   formatScore,
   hordeDifficultyRules,
   hordeDurationRules,
+  hordeHitsToFall,
   hordeTimeRamp,
   normalizePlayerName,
   pickHordeEnemyKind,
 } from '../src/game/horde/rules';
+import {
+  HORDE_ARENA_HEIGHT,
+  HORDE_ARENA_WIDTH,
+  HORDE_MAP_IDS,
+  generateRandomHordeCover,
+  hordeMaps,
+  resolveHordeMap,
+} from '../src/game/horde/maps';
+import {
+  computeLeadDirection,
+  computePincerApproach,
+  computeSeparation,
+  computeTacticalRangedMove,
+  hasImmediateCoverAhead,
+} from '../src/game/horde/ai';
+import { DEFAULT_PREFERENCES } from '../src/services/preferences';
 import {
   HORDE_PLAYER_KEY,
   HORDE_SCORES_KEY,
@@ -121,15 +138,59 @@ describe('Horde Mode 10-fold difficulty progression & scoring', () => {
   });
 
   it('awards clear bonuses only for timed clears and 0 for unlimited', () => {
-    const bonus1mEasy = calculateClearBonus({ duration: '1m', difficulty: 'easy', remainingHealth: 100 });
-    const bonus5mEasy = calculateClearBonus({ duration: '5m', difficulty: 'easy', remainingHealth: 100 });
-    const bonus1mMed = calculateClearBonus({ duration: '1m', difficulty: 'medium', remainingHealth: 100 });
-    const bonusUnlimited = calculateClearBonus({ duration: 'unlimited', difficulty: 'doom', remainingHealth: 100 });
+    const bonus1mEasy = calculateClearBonus({
+      duration: '1m',
+      difficulty: 'easy',
+      remainingHealth: hordeDifficultyRules.easy.playerMaxHealth,
+    });
+    const bonus5mEasy = calculateClearBonus({
+      duration: '5m',
+      difficulty: 'easy',
+      remainingHealth: hordeDifficultyRules.easy.playerMaxHealth,
+    });
+    const bonus1mMed = calculateClearBonus({
+      duration: '1m',
+      difficulty: 'medium',
+      remainingHealth: hordeDifficultyRules.medium.playerMaxHealth,
+    });
+    const bonusUnlimited = calculateClearBonus({
+      duration: 'unlimited',
+      difficulty: 'doom',
+      remainingHealth: hordeDifficultyRules.doom.playerMaxHealth,
+    });
 
     expect(bonus1mEasy).toBeGreaterThan(0);
     expect(bonus5mEasy).toBeGreaterThan(bonus1mEasy);
     expect(bonus1mMed).toBe(bonus1mEasy * 10);
     expect(bonusUnlimited).toBe(0);
+  });
+
+  it('empowers K cleanly through Hard then switches to skill-only rules on Maniac and DOOM', () => {
+    expect(hordeHitsToFall('easy')).toBe(8);
+    expect(hordeHitsToFall('medium')).toBe(6);
+    expect(hordeHitsToFall('hard')).toBe(5);
+    expect(hordeHitsToFall('maniac')).toBe(2);
+    expect(hordeHitsToFall('doom')).toBe(1);
+
+    for (const tier of ['easy', 'medium', 'hard'] as const) {
+      const r = hordeDifficultyRules[tier];
+      expect(r.skillOnly).toBe(false);
+      expect(r.playerMaxHealth).toBeGreaterThanOrEqual(150);
+      expect(r.healPerWave).toBeGreaterThan(0);
+      expect(r.counterKillHeal).toBeGreaterThan(0);
+    }
+
+    // Harder-hitting sidearm scaling up through Hard
+    expect(hordeDifficultyRules.medium.playerPistolDamage).toBeGreaterThan(hordeDifficultyRules.easy.playerPistolDamage);
+    expect(hordeDifficultyRules.hard.playerPistolDamage).toBeGreaterThan(hordeDifficultyRules.medium.playerPistolDamage);
+
+    for (const tier of ['maniac', 'doom'] as const) {
+      const r = hordeDifficultyRules[tier];
+      expect(r.skillOnly).toBe(true);
+      expect(r.playerMaxHealth).toBe(100);
+      expect(r.healPerWave).toBe(0);
+      expect(r.counterKillHeal).toBe(0);
+    }
   });
 
   it('normalizes player names and rejects blank or whitespace-only names', () => {
@@ -262,7 +323,133 @@ describe('Story progress persistence (fixes return-to-menu reset glitch)', () =>
   });
 });
 
-describe('Audio manifest mapping integrity', () => {
+describe('Horde maps, expanded arena & randomized per-match cover', () => {
+  const seededRng = (seed: number) => {
+    let s = seed >>> 0;
+    return () => {
+      s = (s * 1664525 + 1013904223) >>> 0;
+      return s / 0x100000000;
+    };
+  };
+
+  it('defines 4 distinct Horde maps in an expanded 1440x864 arena', () => {
+    expect(HORDE_ARENA_WIDTH).toBe(1440);
+    expect(HORDE_ARENA_HEIGHT).toBe(864);
+    expect(HORDE_MAP_IDS).toEqual(['warehouse', 'settlement', 'library', 'campus']);
+    for (const id of HORDE_MAP_IDS) {
+      expect(hordeMaps[id].backgroundPath.startsWith('/assets/backgrounds/')).toBe(true);
+      expect(resolveHordeMap(id)).toBe(id);
+    }
+    expect(HORDE_MAP_IDS).toContain(resolveHordeMap('random', () => 0.6));
+  });
+
+  it('randomizes cover per match while keeping center spawn plaza and >=72px corridors clear', () => {
+    const cx = HORDE_ARENA_WIDTH * 0.5;
+    const cy = HORDE_ARENA_HEIGHT * 0.52;
+
+    for (const id of HORDE_MAP_IDS) {
+      const a = generateRandomHordeCover(HORDE_ARENA_WIDTH, HORDE_ARENA_HEIGHT, id, seededRng(101));
+      const b = generateRandomHordeCover(HORDE_ARENA_WIDTH, HORDE_ARENA_HEIGHT, id, seededRng(909));
+      expect(a.length).toBeGreaterThanOrEqual(6);
+      expect(b.length).toBeGreaterThanOrEqual(6);
+      // Distinct layouts across runs
+      expect(JSON.stringify(a)).not.toBe(JSON.stringify(b));
+
+      for (const rect of a) {
+        expect(rect.x).toBeGreaterThanOrEqual(86);
+        expect(rect.y).toBeGreaterThanOrEqual(92);
+        expect(rect.x + rect.w).toBeLessThanOrEqual(HORDE_ARENA_WIDTH - 86);
+        expect(rect.y + rect.h).toBeLessThanOrEqual(HORDE_ARENA_HEIGHT - 86);
+
+        const closestX = Math.max(rect.x, Math.min(cx, rect.x + rect.w));
+        const closestY = Math.max(rect.y, Math.min(cy, rect.y + rect.h));
+        expect(Math.hypot(cx - closestX, cy - closestY)).toBeGreaterThanOrEqual(128);
+      }
+
+      // Pairwise corridor spacing >= 72px
+      for (let i = 0; i < a.length; i++) {
+        for (let j = i + 1; j < a.length; j++) {
+          const r1 = a[i];
+          const r2 = a[j];
+          const separated =
+            r1.x + r1.w + 72 <= r2.x
+            || r2.x + r2.w + 72 <= r1.x
+            || r1.y + r1.h + 72 <= r2.y
+            || r2.y + r2.h + 72 <= r1.y;
+          expect(separated).toBe(true);
+        }
+      }
+    }
+  });
+
+  it('stores optional mapId on Horde scores cleanly', () => {
+    const storage = createMemoryStorage();
+    saveHordeScore({
+      playerName: 'Lina',
+      difficulty: 'hard',
+      duration: '1m',
+      mapId: 'library',
+      score: 140_000,
+      kills: 16,
+      counterKills: 4,
+      waveReached: 3,
+      survivedSeconds: 60,
+      cleared: true,
+    }, storage);
+    const loaded = loadHordeScores(storage);
+    expect(loaded[0].mapId).toBe('library');
+  });
+});
+
+describe('Clever Horde enemy AI behaviors', () => {
+  it('leads moving targets ahead of their current position when leadWeight > 0', () => {
+    const direct = computeLeadDirection(0, 0, 300, 0, 0, 220, 500, 0);
+    const led = computeLeadDirection(0, 0, 300, 0, 0, 220, 500, 1);
+    expect(direct.y).toBeCloseTo(0, 4);
+    expect(led.y).toBeGreaterThan(0.2);
+  });
+
+  it('steers ranged enemies around blocking cover toward the open flank', () => {
+    const cover = [{ x: 180, y: 150, w: 60, h: 120 }];
+    // Enemy at (120, 175) looking toward player at (320, 175) -> top flank (y < 150) is much closer than bottom
+    const move = computeTacticalRangedMove({
+      selfId: 's1',
+      x: 120,
+      y: 175,
+      px: 320,
+      py: 175,
+      strafeDir: 1,
+      minRange: 180,
+      maxRange: 320,
+      cover,
+      allies: [{ id: 's1', x: 120, y: 175, kind: 'scout' }],
+    });
+    expect(move.clearSight).toBe(false);
+    expect(move.vy).toBeLessThan(0); // flanks upward around the shorter cover edge
+  });
+
+  it('splits nearby Rushers into opposing pincer angles and separates overlapping allies', () => {
+    const allies = [
+      { id: 'r1', x: 100, y: 200, kind: 'rusher' as const },
+      { id: 'r2', x: 105, y: 235, kind: 'rusher' as const },
+    ];
+    const m1 = computePincerApproach({
+      selfId: 'r1', x: 100, y: 200, px: 500, py: 218, strafeDir: 1, cover: [], allies,
+    });
+    const m2 = computePincerApproach({
+      selfId: 'r2', x: 105, y: 235, px: 500, py: 218, strafeDir: 1, cover: [], allies,
+    });
+    // One peels upward (negative y), the other downward (positive y)
+    expect(m1.vy).toBeLessThan(0);
+    expect(m2.vy).toBeGreaterThan(0);
+
+    const sep = computeSeparation('r1', 100, 200, allies, 80);
+    expect(sep.y).toBeLessThan(0);
+    expect(hasImmediateCoverAhead(100, 200, 1, 0, 14, [{ x: 130, y: 180, w: 40, h: 40 }], 56)).toBe(true);
+  });
+});
+
+describe('Audio manifest mapping & boosted default volumes', () => {
   it('maps all music, ambience, and sfx cues to /assets/audio/*.wav paths', () => {
     const allPaths = [
       ...Object.values(MUSIC_FILES),
@@ -274,5 +461,11 @@ describe('Audio manifest mapping integrity', () => {
       expect(p.startsWith('/assets/audio/')).toBe(true);
       expect(p.endsWith('.wav')).toBe(true);
     }
+  });
+
+  it('uses boosted default music and effects volume levels', () => {
+    expect(DEFAULT_PREFERENCES.master).toBeGreaterThanOrEqual(0.9);
+    expect(DEFAULT_PREFERENCES.music).toBeGreaterThanOrEqual(0.8);
+    expect(DEFAULT_PREFERENCES.effects).toBeGreaterThanOrEqual(0.9);
   });
 });

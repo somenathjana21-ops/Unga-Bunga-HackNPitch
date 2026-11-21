@@ -22,6 +22,7 @@ import {
   hordeDifficultyRules,
   hordeDurationRules,
 } from './game/horde/rules';
+import { hordeMaps, type HordeMapId } from './game/horde/maps';
 import type { HordeConfig, HordeRunResult } from './game/scenes/HordeScene';
 
 // Development-only launch paths for isolated combat/rescue slices. Never shipped
@@ -114,10 +115,53 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
             </div>
           </header>
 
-          <!-- STAGE 1: START / ARE YOU READY? / YES ◀  NO (Matches Uploaded Screenshot) -->
+          <!-- STAGE 1: WANT SHOWCASE / START / ARE YOU READY? / YES ◀  NO -->
           <div class="crt-stage-ready" id="crt-stage-ready">
-            <p class="crt-game-sub">WANT · CHAPTER ONE</p>
-            <h1 id="title" class="sr-only">WANT — Start</h1>
+            <div class="crt-want-showcase" aria-label="WANT — Chapter One: The Wrong Person">
+              <div class="crt-want-rule" aria-hidden="true"></div>
+              <h1 id="title" class="crt-want-wordmark-wrap">
+                <svg class="crt-want-svg" viewBox="0 0 540 84" role="img" aria-label="WANT">
+                  <defs>
+                    <linearGradient id="want-hero-fill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stop-color="#fffdf4" />
+                      <stop offset="56%" stop-color="#fde5a6" />
+                      <stop offset="100%" stop-color="#f5b13d" />
+                    </linearGradient>
+                  </defs>
+                  <!-- Layered retro arcade pixel depth shadow -->
+                  <text
+                    x="275"
+                    y="69"
+                    text-anchor="middle"
+                    font-family="'Press Start 2P', monospace"
+                    font-size="64"
+                    letter-spacing="16"
+                    fill="#140620"
+                  >WANT</text>
+                  <text
+                    x="272"
+                    y="66"
+                    text-anchor="middle"
+                    font-family="'Press Start 2P', monospace"
+                    font-size="64"
+                    letter-spacing="16"
+                    fill="#7c35a8"
+                    opacity="0.72"
+                  >WANT</text>
+                  <text
+                    x="270"
+                    y="63"
+                    text-anchor="middle"
+                    font-family="'Press Start 2P', monospace"
+                    font-size="64"
+                    letter-spacing="16"
+                    fill="url(#want-hero-fill)"
+                  >WANT</text>
+                </svg>
+              </h1>
+              <p class="crt-want-caption">CHAPTER ONE · THE WRONG PERSON</p>
+              <div class="crt-want-rule" aria-hidden="true"></div>
+            </div>
 
             <button
               type="button"
@@ -125,7 +169,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
               class="crt-start-hero-btn"
               aria-label="Start WANT"
             >
-              <svg class="crt-start-svg" viewBox="0 0 640 132" role="img" aria-label="START">
+              <svg class="crt-start-svg" viewBox="0 0 640 124" role="img" aria-label="START">
                 <defs>
                   <linearGradient id="start-gold-fill" x1="0" y1="0" x2="0.18" y2="1">
                     <stop offset="0%" stop-color="#ffe14d" />
@@ -141,10 +185,10 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
                   <clipPath id="start-text-clip">
                     <text
                       x="320"
-                      y="108"
+                      y="102"
                       text-anchor="middle"
                       font-family="'Press Start 2P', monospace"
-                      font-size="94"
+                      font-size="88"
                       letter-spacing="6"
                     >START</text>
                   </clipPath>
@@ -152,26 +196,26 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
                 <!-- Crisp dark pixel offset drop shadow -->
                 <text
                   x="325"
-                  y="114"
+                  y="108"
                   text-anchor="middle"
                   font-family="'Press Start 2P', monospace"
-                  font-size="94"
+                  font-size="88"
                   letter-spacing="6"
                   fill="#150721"
                 >START</text>
                 <!-- Main golden-orange pixel fill -->
                 <text
                   x="320"
-                  y="108"
+                  y="102"
                   text-anchor="middle"
                   font-family="'Press Start 2P', monospace"
-                  font-size="94"
+                  font-size="88"
                   letter-spacing="6"
                   fill="url(#start-gold-fill)"
                 >START</text>
                 <!-- Animated diagonal pixel sheen sweeping across START -->
                 <g clip-path="url(#start-text-clip)">
-                  <rect class="start-sheen-bar" x="-180" y="0" width="140" height="132" fill="url(#start-shine-grad)" />
+                  <rect class="start-sheen-bar" x="-180" y="0" width="140" height="124" fill="url(#start-shine-grad)" />
                 </g>
               </svg>
             </button>
@@ -843,17 +887,23 @@ function continueSavedRun(): void {
   void launchStoryWorld(savedRun.difficulty, savedRun, snapshot);
 }
 
+let lastHordeConfig: HordeConfig | null = null;
+
 async function launchHordeGame(config: HordeConfig): Promise<void> {
   if (launching || game) return;
   launching = true;
+  lastHordeConfig = config;
   errorBox.hidden = true;
   try {
     const { createGame } = await import('./game/create-game');
     const diff = hordeDifficultyRules[config.difficulty];
     const dur = hordeDurationRules[config.duration];
+    const mapLabel = config.mapChoice && config.mapChoice !== 'random'
+      ? hordeMaps[config.mapChoice].name
+      : 'Random Arena';
     previewEyebrow.textContent = `WANT / HORDE ARENA · ${config.playerName.toUpperCase()}`;
     document.querySelector('#mode-label')!.textContent =
-      `${diff.label} (${formatScore(diff.difficultyFactor)}×) · ${dur.label}`;
+      `${mapLabel} · ${diff.label} (${formatScore(diff.difficultyFactor)}×) · ${dur.label}`;
     previewFooterHint.textContent =
       'WASD / Arrows: Move  ·  Click: Fire  ·  Space: Reflex Dodge  ·  R: Snap Reload  ·  Esc / P: Pause';
 
@@ -1133,6 +1183,17 @@ window.addEventListener('want:chapter-ending', (event: Event) => {
   });
 });
 
+// Keep gameplay header synced whenever Horde Arena resolves a concrete map (e.g. Random)
+window.addEventListener('want:horde-map-active', (event: Event) => {
+  const detail = (event as CustomEvent<{ mapId?: HordeMapId }>).detail;
+  if (!detail?.mapId || !lastHordeConfig || activeMode !== 'horde') return;
+  const diff = hordeDifficultyRules[lastHordeConfig.difficulty];
+  const dur = hordeDurationRules[lastHordeConfig.duration];
+  const mapName = hordeMaps[detail.mapId].name;
+  document.querySelector('#mode-label')!.textContent =
+    `${mapName} · ${diff.label} (${formatScore(diff.difficultyFactor)}×) · ${dur.label}`;
+});
+
 // Horde Mode post-run results & scoreboard overlay
 window.addEventListener('want:horde-finished', (event: Event) => {
   const result = (event as CustomEvent<HordeRunResult>).detail;
@@ -1140,7 +1201,11 @@ window.addEventListener('want:horde-finished', (event: Event) => {
   showHordeResults({
     result,
     onPlayAgain: (config) => {
-      window.dispatchEvent(new CustomEvent('want:horde-restart', { detail: config }));
+      const nextConfig: HordeConfig = {
+        ...config,
+        mapChoice: lastHordeConfig?.mapChoice ?? config.mapChoice,
+      };
+      window.dispatchEvent(new CustomEvent('want:horde-restart', { detail: nextConfig }));
     },
     onChangeSetup: () => {
       openHordeLobby();

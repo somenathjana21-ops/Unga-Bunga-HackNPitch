@@ -123,24 +123,24 @@ type AudioWindow = Window & { webkitAudioContext?: typeof AudioContext };
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
 
 const CUE_GAIN: Partial<Record<CueName, number>> = {
-  'step-campus': 0.34,
-  'step-interior': 0.32,
-  'step-debris': 0.36,
-  'ui-confirm': 0.55,
-  gunshot: 0.68,
-  'machine-hit': 0.62,
-  'scout-windup': 0.55,
-  'rusher-windup': 0.6,
-  dodge: 0.72,
-  'counter-ready': 0.85,
-  'counter-impact': 0.9,
-  'k-hit': 0.85,
-  'machine-disabled': 0.78,
-  'lane-crash': 0.82,
-  'muffled-blast': 0.8,
-  'gate-open': 0.8,
-  resolve: 0.82,
-  failure: 0.85,
+  'step-campus': 0.54,
+  'step-interior': 0.52,
+  'step-debris': 0.58,
+  'ui-confirm': 0.84,
+  gunshot: 0.98,
+  'machine-hit': 0.92,
+  'scout-windup': 0.86,
+  'rusher-windup': 0.92,
+  dodge: 0.96,
+  'counter-ready': 1.08,
+  'counter-impact': 1.15,
+  'k-hit': 1.1,
+  'machine-disabled': 1.04,
+  'lane-crash': 1.08,
+  'muffled-blast': 1.06,
+  'gate-open': 1.0,
+  resolve: 1.06,
+  failure: 1.08,
 };
 
 const PITCH_VARIED_CUES = new Set<CueName>([
@@ -170,7 +170,7 @@ class AudioEngine {
   private sfxPending = new Map<string, Promise<AudioBuffer | null>>();
   private lastCueTime = new Map<CueName, number>();
 
-  private settings: AudioSettings = { master: 0.7, music: 0.55, effects: 0.75, muted: false };
+  private settings: AudioSettings = { master: 0.92, music: 0.84, effects: 0.96, muted: false };
   private failed = false;
 
   /** False when this browser has no usable Web Audio implementation. */
@@ -205,10 +205,10 @@ class AudioEngine {
         void context.resume().catch(() => { /* stay silent until the next gesture */ });
       }
       if (this.requestedMusic && (!this.activeMusic || this.activeMusic.key !== MUSIC_FILES[this.requestedMusic])) {
-        this.startStreamLayer('music', MUSIC_FILES[this.requestedMusic], 0.78, this.musicPlaybackRate);
+        this.startStreamLayer('music', MUSIC_FILES[this.requestedMusic], 1.0, this.musicPlaybackRate);
       }
       if (this.requestedAmbience && (!this.activeAmbience || this.activeAmbience.key !== AMBIENCE_FILES[this.requestedAmbience])) {
-        this.startStreamLayer('ambience', AMBIENCE_FILES[this.requestedAmbience], 0.42, 1);
+        this.startStreamLayer('ambience', AMBIENCE_FILES[this.requestedAmbience], 0.58, 1);
       }
       // Pre-warm the most frequent SFX silently in the background.
       this.preloadCommonCues();
@@ -232,7 +232,7 @@ class AudioEngine {
     this.fadeOutLayer(this.activeMusic, 0.75);
     this.activeMusic = null;
     if (nextFile && this.context) {
-      this.startStreamLayer('music', nextFile, 0.78, rate);
+      this.startStreamLayer('music', nextFile, 1.0, rate);
     }
   }
 
@@ -246,7 +246,7 @@ class AudioEngine {
     this.fadeOutLayer(this.activeAmbience, 0.9);
     this.activeAmbience = null;
     if (nextFile && this.context) {
-      this.startStreamLayer('ambience', nextFile, 0.42, 1);
+      this.startStreamLayer('ambience', nextFile, 0.58, 1);
     }
   }
 
@@ -303,7 +303,21 @@ class AudioEngine {
     const musicBus = context.createGain();
     const ambienceBus = context.createGain();
     const effectsBus = context.createGain();
-    master.connect(context.destination);
+
+    // Soft master limiter keeps boosted music + combat SFX loud and punchy without clipping.
+    if (typeof context.createDynamicsCompressor === 'function') {
+      const limiter = context.createDynamicsCompressor();
+      limiter.threshold.value = -6;
+      limiter.knee.value = 12;
+      limiter.ratio.value = 4;
+      limiter.attack.value = 0.003;
+      limiter.release.value = 0.15;
+      master.connect(limiter);
+      limiter.connect(context.destination);
+    } else {
+      master.connect(context.destination);
+    }
+
     musicBus.connect(master);
     ambienceBus.connect(master);
     effectsBus.connect(master);
@@ -330,16 +344,16 @@ class AudioEngine {
     if (context && this.master && this.musicBus && this.ambienceBus && this.effectsBus) {
       const now = context.currentTime;
       this.master.gain.setTargetAtTime(masterLevel, now, 0.025);
-      this.musicBus.gain.setTargetAtTime(this.settings.music, now, 0.025);
-      this.ambienceBus.gain.setTargetAtTime(this.settings.music * 0.72, now, 0.025);
-      this.effectsBus.gain.setTargetAtTime(this.settings.effects, now, 0.025);
+      this.musicBus.gain.setTargetAtTime(this.settings.music * 1.28, now, 0.025);
+      this.ambienceBus.gain.setTargetAtTime(this.settings.music * 0.86, now, 0.025);
+      this.effectsBus.gain.setTargetAtTime(this.settings.effects * 1.38, now, 0.025);
     }
     // Keep any non-WebAudio fallback elements synced as well.
     if (this.activeMusic && !this.activeMusic.gain) {
-      this.activeMusic.el.volume = clamp01(masterLevel * this.settings.music * this.activeMusic.targetGain);
+      this.activeMusic.el.volume = clamp01(masterLevel * this.settings.music * 1.15 * this.activeMusic.targetGain);
     }
     if (this.activeAmbience && !this.activeAmbience.gain) {
-      this.activeAmbience.el.volume = clamp01(masterLevel * this.settings.music * 0.72 * this.activeAmbience.targetGain);
+      this.activeAmbience.el.volume = clamp01(masterLevel * this.settings.music * 0.84 * this.activeAmbience.targetGain);
     }
   }
 
@@ -450,7 +464,7 @@ class AudioEngine {
     if (PITCH_VARIED_CUES.has(name)) {
       source.playbackRate.value = 0.94 + Math.random() * 0.12;
     }
-    gain.gain.value = CUE_GAIN[name] ?? 0.72;
+    gain.gain.value = CUE_GAIN[name] ?? 0.96;
     source.connect(gain).connect(bus);
     source.start();
   }

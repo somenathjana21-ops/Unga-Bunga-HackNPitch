@@ -9,6 +9,7 @@ import {
   type HordeDifficulty,
   type HordeDuration,
 } from '../game/horde/rules';
+import { isHordeMapId, type HordeMapId } from '../game/horde/maps';
 
 export const HORDE_SCORES_KEY = 'want.horde.scores.v1';
 export const HORDE_PLAYER_KEY = 'want.horde.player.v1';
@@ -20,6 +21,7 @@ export interface HordeScoreEntry {
   playerName: string;
   difficulty: HordeDifficulty;
   duration: HordeDuration;
+  mapId?: HordeMapId;
   score: number;
   kills: number;
   counterKills: number;
@@ -39,6 +41,7 @@ export function isHordeScoreEntry(value: unknown): value is HordeScoreEntry {
     && typeof e.playerName === 'string' && e.playerName.trim().length > 0
     && HORDE_DIFFICULTIES.includes(e.difficulty as HordeDifficulty)
     && HORDE_DURATIONS.includes(e.duration as HordeDuration)
+    && (e.mapId === undefined || isHordeMapId(e.mapId))
     && typeof e.score === 'number' && Number.isFinite(e.score) && e.score >= 0
     && typeof e.kills === 'number' && Number.isFinite(e.kills) && e.kills >= 0
     && typeof e.counterKills === 'number' && Number.isFinite(e.counterKills) && e.counterKills >= 0
@@ -74,6 +77,7 @@ export function saveHordeScore(
     playerName: cleanName,
     difficulty: entry.difficulty,
     duration: entry.duration,
+    ...(entry.mapId && isHordeMapId(entry.mapId) ? { mapId: entry.mapId } : {}),
     score: Math.max(0, Math.round(entry.score)),
     kills: Math.max(0, Math.round(entry.kills)),
     counterKills: Math.max(0, Math.round(entry.counterKills)),

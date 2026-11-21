@@ -17,7 +17,7 @@ export interface HordeDifficultyRule {
   /** Exact 10-fold difficulty power rating & score multiplier (1x -> 10,000x). */
   difficultyFactor: number;
   scoreMultiplier: number;
-  /** Enemy durability, tempo, and density scaling. */
+  /** Enemy durability, tempo, density, and AI sharpness scaling. */
   enemyHealth: number;
   maxActiveEnemies: number;
   spawnIntervalMs: number;
@@ -26,10 +26,19 @@ export interface HordeDifficultyRule {
   bulletSpeed: number;
   scoutBurstCount: number;
   strikerSpreadCount: number;
-  /** Player durability (damage taken per hit at 100 max HP). */
+  /** Predictive lead-aiming accuracy in [0, 1]. Higher tiers anticipate K's movement cleanly. */
+  aiLeadFactor: number;
+  /** Player durability & combat power scaling: tougher/harder-hitting through Hard, pure skill on Maniac/DOOM. */
+  playerMaxHealth: number;
   damagePerHit: number;
-  /** Player pistol damage scales cleanly so Reflex Counters & skill stay lethal. */
   playerPistolDamage: number;
+  playerFireCooldownMs: number;
+  playerMoveSpeedMult: number;
+  /** Wave-clear recovery & Counter-Kill siphon (0 on Maniac/DOOM — pure skill only). */
+  healPerWave: number;
+  counterKillHeal: number;
+  /** True on Maniac/DOOM where armor/sustain are stripped and survival is pure skill. */
+  skillOnly: boolean;
   /** Music tempo subtly accelerates on higher tiers. */
   musicRate: number;
   /** Accent hex color for HUD/labels. */
@@ -40,86 +49,114 @@ export const hordeDifficultyRules: Record<HordeDifficulty, HordeDifficultyRule> 
   easy: {
     id: 'easy',
     label: 'Easy',
-    tagline: 'Measured patrols · 5 hits to fall · 1× threat & score',
+    tagline: 'Empowered warm-up · 8 hits · Heavy pistol & +40 HP/wave · 1× score',
     difficultyFactor: 1,
     scoreMultiplier: 1,
     enemyHealth: 30,
-    maxActiveEnemies: 4,
-    spawnIntervalMs: 2400,
-    enemySpeedMultiplier: 0.85,
-    telegraphMs: 920,
-    bulletSpeed: 360,
+    maxActiveEnemies: 5,
+    spawnIntervalMs: 2450,
+    enemySpeedMultiplier: 0.86,
+    telegraphMs: 950,
+    bulletSpeed: 350,
     scoutBurstCount: 1,
     strikerSpreadCount: 2,
+    aiLeadFactor: 0.18,
+    playerMaxHealth: 160,
     damagePerHit: 20,
-    playerPistolDamage: 12,
+    playerPistolDamage: 24,
+    playerFireCooldownMs: 190,
+    playerMoveSpeedMult: 1.08,
+    healPerWave: 40,
+    counterKillHeal: 15,
+    skillOnly: false,
     musicRate: 0.96,
     accentHex: '#86efac',
   },
   medium: {
     id: 'medium',
     label: 'Medium',
-    tagline: 'Coordinated resistance drills · 4 hits · 10× threat & score',
+    tagline: 'Armored vanguard · 6 hits · High-caliber rounds & +30 HP/wave · 10× score',
     difficultyFactor: 10,
     scoreMultiplier: 10,
-    enemyHealth: 60,
-    maxActiveEnemies: 7,
-    spawnIntervalMs: 1550,
-    enemySpeedMultiplier: 1.05,
-    telegraphMs: 760,
-    bulletSpeed: 440,
+    enemyHealth: 64,
+    maxActiveEnemies: 8,
+    spawnIntervalMs: 1650,
+    enemySpeedMultiplier: 1.04,
+    telegraphMs: 800,
+    bulletSpeed: 425,
     scoutBurstCount: 2,
     strikerSpreadCount: 3,
+    aiLeadFactor: 0.42,
+    playerMaxHealth: 150,
     damagePerHit: 25,
-    playerPistolDamage: 16,
+    playerPistolDamage: 38,
+    playerFireCooldownMs: 175,
+    playerMoveSpeedMult: 1.12,
+    healPerWave: 30,
+    counterKillHeal: 12,
+    skillOnly: false,
     musicRate: 1.0,
     accentHex: '#7dd3fc',
   },
   hard: {
     id: 'hard',
     label: 'Hard',
-    tagline: 'Relentless crossfire · 3 hits · 100× threat & score',
+    tagline: 'Heavy striker · 5 hits · Overclocked firepower & +25 HP/wave · 100× score',
     difficultyFactor: 100,
     scoreMultiplier: 100,
-    enemyHealth: 120,
-    maxActiveEnemies: 11,
-    spawnIntervalMs: 960,
-    enemySpeedMultiplier: 1.26,
-    telegraphMs: 610,
-    bulletSpeed: 520,
+    enemyHealth: 112,
+    maxActiveEnemies: 12,
+    spawnIntervalMs: 1040,
+    enemySpeedMultiplier: 1.24,
+    telegraphMs: 650,
+    bulletSpeed: 500,
     scoutBurstCount: 2,
     strikerSpreadCount: 3,
-    damagePerHit: 34,
-    playerPistolDamage: 24,
+    aiLeadFactor: 0.68,
+    playerMaxHealth: 150,
+    damagePerHit: 30,
+    playerPistolDamage: 58,
+    playerFireCooldownMs: 162,
+    playerMoveSpeedMult: 1.18,
+    healPerWave: 25,
+    counterKillHeal: 10,
+    skillOnly: false,
     musicRate: 1.04,
     accentHex: '#fbbf24',
   },
   maniac: {
     id: 'maniac',
     label: 'Maniac',
-    tagline: 'Overwhelming swarm pressure · 2 hits · 1,000× threat & score',
+    tagline: 'Skill-only gauntlet · 2 hits · Zero wave heal · Lethal pincers · 1,000× score',
     difficultyFactor: 1000,
     scoreMultiplier: 1000,
-    enemyHealth: 240,
-    maxActiveEnemies: 16,
+    enemyHealth: 220,
+    maxActiveEnemies: 17,
     spawnIntervalMs: 560,
     enemySpeedMultiplier: 1.5,
-    telegraphMs: 470,
+    telegraphMs: 460,
     bulletSpeed: 620,
     scoutBurstCount: 3,
     strikerSpreadCount: 4,
+    aiLeadFactor: 0.88,
+    playerMaxHealth: 100,
     damagePerHit: 50,
-    playerPistolDamage: 38,
+    playerPistolDamage: 62,
+    playerFireCooldownMs: 175,
+    playerMoveSpeedMult: 1.16,
+    healPerWave: 0,
+    counterKillHeal: 0,
+    skillOnly: true,
     musicRate: 1.08,
     accentHex: '#fb923c',
   },
   doom: {
     id: 'doom',
     label: 'DOOM',
-    tagline: 'One hit ends it · Total siege · 10,000× threat & score',
+    tagline: 'Pure skill · 1 hit ends it · Zero heal · Apex squad AI · 10,000× score',
     difficultyFactor: 10000,
     scoreMultiplier: 10000,
-    enemyHealth: 480,
+    enemyHealth: 420,
     maxActiveEnemies: 24,
     spawnIntervalMs: 320,
     enemySpeedMultiplier: 1.78,
@@ -127,8 +164,15 @@ export const hordeDifficultyRules: Record<HordeDifficulty, HordeDifficultyRule> 
     bulletSpeed: 730,
     scoutBurstCount: 4,
     strikerSpreadCount: 5,
+    aiLeadFactor: 1.0,
+    playerMaxHealth: 100,
     damagePerHit: 100,
-    playerPistolDamage: 64,
+    playerPistolDamage: 78,
+    playerFireCooldownMs: 175,
+    playerMoveSpeedMult: 1.2,
+    healPerWave: 0,
+    counterKillHeal: 0,
+    skillOnly: true,
     musicRate: 1.13,
     accentHex: '#f87171',
   },
@@ -168,6 +212,12 @@ export const HORDE_ENEMY_BASE_POINTS: Record<HordeEnemyKind, number> = {
   striker: 250,
 };
 
+/** Returns how many damaging hits K can withstand from full health at this tier. */
+export function hordeHitsToFall(difficulty: HordeDifficulty): number {
+  const rule = hordeDifficultyRules[difficulty];
+  return Math.max(1, Math.ceil(rule.playerMaxHealth / rule.damagePerHit));
+}
+
 /** Validates and normalizes a Horde player callsign. Returns null if empty/invalid. */
 export function normalizePlayerName(raw: string): string | null {
   const cleaned = raw.replace(/\s+/g, ' ').trim();
@@ -186,7 +236,7 @@ export function hordeTimeRamp(elapsedSec: number): {
 } {
   const safeSec = Math.max(0, elapsedSec);
   const waveNumber = Math.floor(safeSec / 20) + 1;
-  // Opening 10s slightly calmer (1.2x interval), then ramps down to 0.65x interval over 3 minutes.
+  // Opening 10s slightly calmer (1.2x interval), then ramps down to 0.62x interval over 3 minutes.
   const spawnIntervalScale = safeSec < 10
     ? 1.2 - (safeSec / 10) * 0.2
     : Math.max(0.62, 1 - ((safeSec - 10) / 180) * 0.38);
@@ -194,9 +244,8 @@ export function hordeTimeRamp(elapsedSec: number): {
   return { spawnIntervalScale, activeCapBonus, waveNumber };
 }
 
-/** Chooses enemy archetype based on wave number and kill count so all 3 policies appear cleanly. */
+/** Chooses enemy archetype based on wave number and kill count so all 3 roles appear cleanly. */
 export function pickHordeEnemyKind(waveNumber: number, spawnIndex: number, difficulty: HordeDifficulty): HordeEnemyKind {
-  // Opening wave introduces Scouts and Rushers first, then brings Breach Strikers into the mix.
   if (waveNumber === 1 && difficulty === 'easy') {
     return spawnIndex % 3 === 2 ? 'rusher' : 'scout';
   }
@@ -230,9 +279,10 @@ export function calculateClearBonus(options: {
 }): number {
   const seconds = hordeDurationRules[options.duration].seconds;
   if (seconds === null) return 0;
-  const diffMult = hordeDifficultyRules[options.difficulty].scoreMultiplier;
-  const healthBonus = Math.max(0, Math.min(100, options.remainingHealth)) * 10;
-  return Math.round((seconds * 25 + healthBonus) * diffMult);
+  const rule = hordeDifficultyRules[options.difficulty];
+  const healthRatio = Math.max(0, Math.min(1, options.remainingHealth / rule.playerMaxHealth));
+  const healthBonus = Math.round(healthRatio * 1000);
+  return Math.round((seconds * 25 + healthBonus) * rule.scoreMultiplier);
 }
 
 /** Formats MM:SS countdown or elapsed timer cleanly. */

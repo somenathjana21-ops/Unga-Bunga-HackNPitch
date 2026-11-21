@@ -17,9 +17,9 @@ export const PREFERENCES_KEY = 'want.preferences.v1';
 
 export const DEFAULT_PREFERENCES: Preferences = {
   version: 1,
-  master: 0.7,
-  music: 0.5,
-  effects: 0.7,
+  master: 0.92,
+  music: 0.84,
+  effects: 0.96,
   muted: false,
   reducedMotion: 'auto',
 };

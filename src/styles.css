@@ -469,7 +469,7 @@ button:focus-visible, input:focus-visible, #game:focus-visible {
   100% { transform: scale(1); }
 }
 
-/* ---------- STAGE 1: START / ARE YOU READY? / YES ◀  NO ---------- */
+/* ---------- STAGE 1: WANT SHOWCASE / START / ARE YOU READY? / YES ◀  NO ---------- */
 .crt-stage-ready {
   flex: 1;
   display: flex;
@@ -477,7 +477,60 @@ button:focus-visible, input:focus-visible, #game:focus-visible {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: clamp(10px, 2vh, 26px) 0 clamp(14px, 2.8vh, 30px);
+  padding: clamp(4px, 1vh, 14px) 0 clamp(8px, 1.6vh, 18px);
+}
+
+.crt-want-showcase {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: min(100%, 540px);
+  margin-bottom: clamp(10px, 1.8vh, 18px);
+  animation: want-showcase-in 0.52s 0.12s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.crt-want-rule {
+  width: min(76%, 360px);
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 174, 38, 0.65) 24%,
+    rgba(255, 240, 188, 0.92) 50%,
+    rgba(255, 174, 38, 0.65) 76%,
+    transparent 100%
+  );
+  opacity: 0.78;
+}
+
+.crt-want-wordmark-wrap {
+  margin: 0;
+  width: min(100%, 480px);
+  line-height: 1;
+}
+
+.crt-want-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  filter: drop-shadow(0 0 18px rgba(255, 210, 96, 0.28));
+}
+
+.crt-want-caption {
+  margin: 0;
+  font-family: var(--font-pixel);
+  font-size: clamp(9px, 0.88vw, 11px);
+  color: var(--text-secondary);
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+  text-shadow: 0 2px 0 #150721;
+}
+
+@keyframes want-showcase-in {
+  from { opacity: 0; transform: translateY(-10px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .crt-game-sub {
@@ -492,14 +545,14 @@ button:focus-visible, input:focus-visible, #game:focus-visible {
 .crt-start-hero-btn {
   background: transparent;
   border: 0;
-  padding: 6px 12px;
-  margin: 4px 0 clamp(22px, 3.8vh, 42px);
-  width: min(100%, 660px);
+  padding: 2px 12px;
+  margin: 0 0 clamp(14px, 2.4vh, 26px);
+  width: min(100%, 580px);
   display: flex;
   align-items: center;
   justify-content: center;
   transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), filter 0.18s ease;
-  animation: start-hero-in 0.56s 0.2s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: start-hero-in 0.56s 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .crt-start-hero-btn:hover {
@@ -542,9 +595,9 @@ button:focus-visible, input:focus-visible, #game:focus-visible {
 }
 
 .crt-ready-prompt {
-  margin: 0 0 clamp(24px, 4vh, 40px);
+  margin: 0 0 clamp(16px, 2.6vh, 28px);
   font-family: var(--font-pixel);
-  font-size: clamp(16px, 2.05vw, 26px);
+  font-size: clamp(16px, 1.95vw, 24px);
   color: var(--text-primary);
   letter-spacing: 0.08em;
   text-shadow: 0 4px 0 #150721;
@@ -632,7 +685,7 @@ button:focus-visible, input:focus-visible, #game:focus-visible {
 }
 
 .crt-ready-hint {
-  margin: clamp(28px, 4.5vh, 46px) 0 0;
+  margin: clamp(16px, 2.6vh, 28px) 0 0;
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--text-muted);
@@ -1120,15 +1173,15 @@ dialog h2 {
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
 .horde-heading {
-  margin: 0 0 6px;
+  margin: 0 0 4px;
   font-family: var(--font-pixel);
-  font-size: clamp(20px, 2.5vw, 30px);
+  font-size: clamp(18px, 2.2vw, 26px);
   line-height: 1.2;
   color: var(--accent-amber-hi);
   text-shadow: 0 3px 0 #150721;
@@ -1137,32 +1190,39 @@ dialog h2 {
 .horde-sub {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 14px;
-  max-width: 60ch;
+  font-size: 13px;
+  max-width: 68ch;
 }
 
 .horde-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
-  gap: 24px;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.92fr);
+  gap: 20px;
   align-items: start;
 }
 
 .horde-config-panel {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
+}
+
+.horde-top-inputs {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 12px;
+  align-items: start;
 }
 
 .horde-field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .horde-label {
   font-family: var(--font-pixel);
-  font-size: 10px;
+  font-size: 9px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--accent-amber-hi);
@@ -1170,12 +1230,12 @@ dialog h2 {
 
 .horde-input {
   width: 100%;
-  padding: 11px 14px;
+  padding: 10px 12px;
   border-radius: 8px;
   border: 1px solid var(--border-subtle);
   background: rgba(18, 7, 29, 0.92);
   color: var(--text-primary);
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .horde-input:focus {
@@ -1185,14 +1245,14 @@ dialog h2 {
 .horde-field-error {
   margin: 0;
   color: #fca5a5;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
 }
 
 .horde-duration-group {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: 6px;
 }
 
 .horde-seg-btn {
@@ -1200,7 +1260,7 @@ dialog h2 {
   flex-direction: column;
   align-items: flex-start;
   gap: 2px;
-  padding: 10px 12px;
+  padding: 7px 9px;
   border-radius: 8px;
   border: 1px solid var(--border-subtle);
   background: rgba(24, 11, 38, 0.85);
@@ -1211,12 +1271,12 @@ dialog h2 {
 
 .horde-seg-btn .seg-title {
   font-weight: 700;
-  font-size: 14px;
+  font-size: 12px;
   color: var(--text-primary);
 }
 
 .horde-seg-btn .seg-desc {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-muted);
 }
 
@@ -1229,24 +1289,87 @@ dialog h2 {
   color: var(--accent-amber-hi);
 }
 
+/* Arena Map Selector */
+.horde-map-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.horde-map-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  padding: 5px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(24, 11, 38, 0.88);
+  color: var(--text-secondary);
+  text-align: center;
+  transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.14s ease;
+}
+
+.horde-map-btn:hover {
+  border-color: var(--accent-amber);
+  transform: translateY(-1px);
+}
+
+.horde-map-btn.is-active {
+  border-color: var(--accent-amber-hi);
+  background: rgba(56, 28, 84, 0.94);
+  color: var(--accent-amber-hi);
+  box-shadow: inset 0 0 0 1px var(--accent-amber-hi);
+}
+
+.map-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 44px;
+  border-radius: 5px;
+  background-size: cover;
+  background-position: center;
+  background-color: #160a24;
+  border: 1px solid rgba(186, 160, 232, 0.16);
+}
+
+.map-thumb.is-random {
+  font-family: var(--font-pixel);
+  font-size: 16px;
+  color: var(--accent-amber-hi);
+  background: linear-gradient(135deg, rgba(64, 30, 96, 0.9), rgba(25, 11, 40, 0.95));
+}
+
+.map-name {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
 .horde-diff-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 8px;
+  gap: 7px;
 }
 
 .horde-diff-btn {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 6px;
-  padding: 10px;
+  gap: 5px;
+  padding: 8px 9px;
   border-radius: 8px;
   border: 1px solid var(--border-subtle);
   background: rgba(24, 11, 38, 0.85);
   color: var(--text-primary);
   text-align: left;
   transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.14s ease;
+}
+
+.horde-diff-btn.is-skill-only {
+  background: rgba(44, 14, 36, 0.86);
 }
 
 .horde-diff-btn:hover {
@@ -1268,26 +1391,26 @@ dialog h2 {
 }
 
 .diff-top strong {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--tier-accent, var(--text-primary));
 }
 
 .diff-mult {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--text-primary);
 }
 
 .diff-meta {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-muted);
 }
 
 .horde-diff-summary {
-  margin: 2px 0 0;
-  font-size: 13px;
+  margin: 0;
+  font-size: 12px;
   color: var(--text-secondary);
-  line-height: 1.5;
+  line-height: 1.45;
 }
 
 .horde-launch-row {
@@ -1844,12 +1967,15 @@ dialog h2 {
   .crt-select-grid { grid-template-columns: 1fr; }
   .crt-poster-card { max-width: 320px; }
   .horde-grid { grid-template-columns: 1fr; }
+  .horde-top-inputs { grid-template-columns: 1fr; }
+  .horde-map-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .horde-diff-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 680px) {
   .crt-yes-no-row { gap: 36px; }
   .horde-duration-group { grid-template-columns: 1fr; }
+  .horde-map-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .horde-diff-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .horde-stats-strip { grid-template-columns: repeat(2, 1fr); }
   .desktop-note { display: block; }
