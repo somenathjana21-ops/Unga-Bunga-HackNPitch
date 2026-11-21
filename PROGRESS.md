@@ -381,6 +381,8 @@ Copy this template as a new subsection; replace the placeholders:
 - Put changes to agreed game rules in `docs/DECISIONS.md`; link them here. Do not quietly convert an implementation note into a new design decision.
 - Keep credentials, tokens, private email addresses and raw logs out of this file. Link to concise evidence instead.
 
+- **21 November 2026 - build-error-fix:** resolved `npm run check` typecheck failure in `src/main.ts` line 1273, where `initialWeapon` was referenced on `HordeConfig` but that interface (in `src/game/scenes/HordeScene.ts`) has no such field and nothing supplies it. Removed the invalid `initialWeapon` assignment from the `want:horde-restart` `nextConfig` object. `npm run check` now passes end-to-end: assets:check (90 visual + 33 audio), strict `tsc --noEmit` clean, 70/70 Vitest tests across 6 files, and a clean Vite production build (only the expected lazy Phaser chunk-size warning). Single-file change, `src/main.ts`; verified locally on `master`, uncommitted.
+
 ## Append-only activity log
 
 Add concise entries at the bottom; do not rewrite prior entries to make earlier work appear complete. Correct mistakes in a new entry.

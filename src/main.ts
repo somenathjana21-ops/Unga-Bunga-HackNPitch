@@ -1270,7 +1270,6 @@ window.addEventListener('want:horde-finished', (event: Event) => {
       const nextConfig: HordeConfig = {
         ...config,
         mapChoice: lastHordeConfig?.mapChoice ?? config.mapChoice,
-        initialWeapon: lastHordeConfig?.initialWeapon ?? config.initialWeapon,
       };
       window.dispatchEvent(new CustomEvent('want:horde-restart', { detail: nextConfig }));
     },
