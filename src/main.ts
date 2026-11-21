@@ -14,6 +14,8 @@ import {
   saveRun,
 } from './services/local-save';
 import { loadHordeScores } from './services/horde-scores';
+import { getHordeDuelBackend, loadStoredDuelSession, saveStoredDuelSession } from './services/horde-duel';
+import type { DuelSession } from './game/horde/duel';
 import { newRun } from './game/state';
 import type { RunState } from './game/state';
 import { mapDisplayName, type StoryProgressSnapshot } from './game/story-state';
@@ -436,6 +438,8 @@ let readyChoice: 'yes' | 'no' = 'yes';
 let displayedHiScore = -1;
 let hiScoreRafId: number | null = null;
 let warpTimerId: number | null = null;
+let activeDuel: DuelSession | null = loadStoredDuelSession();
+const duelBackend = getHordeDuelBackend();
 
 // Preferences flow into the audio engine, cutscene player, and ending screen.
 let preferences = (() => {
@@ -901,7 +905,10 @@ async function launchHordeGame(config: HordeConfig): Promise<void> {
     const mapLabel = config.mapChoice && config.mapChoice !== 'random'
       ? hordeMaps[config.mapChoice].name
       : 'Random Arena';
-    previewEyebrow.textContent = `WANT / HORDE ARENA · ${config.playerName.toUpperCase()}`;
+    const duelTag = activeDuel && activeDuel.room.seed === config.seed
+      ? ` · DUEL ${activeDuel.room.code} P${activeDuel.seat}`
+      : '';
+    previewEyebrow.textContent = `WANT / HORDE ARENA · ${config.playerName.toUpperCase()}${duelTag}`;
     document.querySelector('#mode-label')!.textContent =
       `${mapLabel} · ${diff.label} (${formatScore(diff.difficultyFactor)}×) · ${dur.label}`;
     previewFooterHint.textContent =
@@ -952,8 +959,20 @@ async function launchDevScene(sceneKey: 'combat' | 'rescue', modeLabel: string, 
 
 // Mount Horde lobby once and refresh whenever opened.
 const hordeLobby = mountHordeLobby(hordeLobbySection, {
+  duelBackend,
   onLaunch: (config) => {
     void launchHordeGame(config);
+  },
+  onDuelLaunch: (session) => {
+    activeDuel = session;
+    saveStoredDuelSession(session);
+    const playerName = session.room.players.find((p) => p.seat === session.seat)?.name ?? 'Agent';
+    void launchHordeGame({
+      playerName,
+      difficulty: session.room.difficulty,
+      duration: session.room.duration,
+      seed: session.room.seed,
+    });
   },
   onBack: () => {
     returnToTitle(false, 'select');
@@ -962,6 +981,8 @@ const hordeLobby = mountHordeLobby(hordeLobbySection, {
 
 function openHordeLobby(): void {
   destroyActiveGame(false);
+  if (!activeDuel) activeDuel = loadStoredDuelSession();
+  hordeLobby.setDuelSession(activeDuel);
   hordeLobby.refresh();
   audio.setSceneAudio('campus', 'campus');
   playCrtTransition('warp', () => {
@@ -1198,8 +1219,12 @@ window.addEventListener('want:horde-map-active', (event: Event) => {
 window.addEventListener('want:horde-finished', (event: Event) => {
   const result = (event as CustomEvent<HordeRunResult>).detail;
   if (!result) return;
+  const duel = activeDuel && activeDuel.room.seed === result.seed
+    ? { session: activeDuel, backend: duelBackend }
+    : undefined;
   showHordeResults({
     result,
+    duel,
     onPlayAgain: (config) => {
       const nextConfig: HordeConfig = {
         ...config,
@@ -1208,6 +1233,9 @@ window.addEventListener('want:horde-finished', (event: Event) => {
       window.dispatchEvent(new CustomEvent('want:horde-restart', { detail: nextConfig }));
     },
     onChangeSetup: () => {
+      openHordeLobby();
+    },
+    onDuelLobby: () => {
       openHordeLobby();
     },
     onReturnToMenu: () => {

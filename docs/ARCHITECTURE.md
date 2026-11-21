@@ -45,6 +45,7 @@ want/
 | 5 | `src/content/encounters/`, `src/game/campaign-controller.ts` | Rescue beats, story gating, one-time milestones, failure and retry. |
 | 6 | `src/ui/`, `src/services/cloud-save.ts` | Continue/settings/save messages; optional cloud auth and conflict UI. |
 | Later | `src/game/horde/` | Separate run state and progression; no campaign dependence. |
+| Horde duel | `src/game/horde/duel.ts`, `src/services/horde-duel.ts`, `supabase/migrations/202611210001_horde_duels.sql` | Shared-code, seeded Horde score duel. Supabase RPCs are token-gated; localStorage is the credential-free pass-and-play fallback. Not real-time co-op. |
 
 Do not create empty Scene classes for every future feature. Add the next complete slice, keep it runnable, then merge.
 

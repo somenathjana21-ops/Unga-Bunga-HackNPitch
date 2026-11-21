@@ -2,17 +2,17 @@
 
 **Read this at the start of every task. Update it before editing, after meaningful progress or a blocker, and before handing work back.** The detailed rules are in [AGENTS.md](AGENTS.md).
 
-Last updated: 20 November 2026 (Asia/Calcutta).
+Last updated: 21 November 2026 (Asia/Calcutta).
 
 This is the authoritative record of implementation status and agent handoffs. [The task board](docs/TASK_BOARD.md) supplies the planned ownership and dependencies; [decisions](docs/DECISIONS.md) define the agreed game; [verification](docs/VERIFICATION.md) holds detailed test evidence. The PDFs are planning snapshots, not live progress trackers.
 
 ## Current position
 
-- **Delivered:** Phase 0 foundation, original asset inventory, runnable title/exploration preview, campaign-state/save helpers, development guides and playthrough PDFs.
-- **Last recorded code verification:** 9 November 2026, on `86e36cc`: clean install, full check (seven tests) and Chromium production-preview checks passed. See P0-VERIFY-001 below and [earlier foundation evidence](docs/VERIFICATION.md).
-- **Not implemented:** full story scenes, real-time combat/counter, rescue mission, audio/cutscenes, campaign Continue UI, cloud sync, and horde progression.
-- **External setup:** foundation snapshot `0c507d8` is committed on local `main`. This checkout has an `origin` remote. Teammate access and live Vercel/Supabase setup remain team tasks.
-- **Next recommended work:** each teammate verifies Phase 0, owners are assigned, then separate contributors can claim Phase 1 world, Phase 2 dialogue, and Phase 3 isolated combat slices according to the guide's dependencies.
+- **Delivered:** Phase 0 foundation; five-map exploration world; opening dialogue through the settlement; cutscenes and audio; real-time Reflex Combat; the three-beat rescue and animated ending; local saves with exact map/tile Continue; Horde Mode; and the arcade CRT shell. Phases P1–P6 local are integrated on `master`.
+- **Last recorded code verification:** 21 November 2026, `npm run check` passed with 90 visual + 33 audio assets, strict TypeScript, 42/42 Vitest tests across 5 files, and a production build with the expected Phaser chunk warning. See AUDIO-HORDE-POLISH-001 and ARCADE-CRT-UI-001 below.
+- **Not implemented:** full human playthrough in both modes, live Vercel deployment, Supabase cloud saves, final rights/credits confirmation, and Horde progression/leveling.
+- **External setup:** `origin` points at `somenathjana21-ops/Unga-Bunga-HackNPitch`. Teammate access and live Vercel/Supabase setup remain team tasks.
+- **Next recommended work:** run the fresh-player Story/Real playthrough and release checklist in the [guidebook](docs/GUIDEBOOK.md); only then claim new campaign content or optional cloud/leveling work.
 
 ## Status rules
 
@@ -38,10 +38,11 @@ Do not turn an entire phase to Done because one task or placeholder is finished.
 | P3 | Real-time combat | Integrated on master | CombatScene, combat types/damage/player/enemy/bullet, dev launch path merged via feature/p3-combat-arena; `npm run check` passes; manual combat verification pending. |
 | P4 | Cutscenes, audio and settings | Integrated on master | Cutscene player, audio buses, settings panel merged via phase-4-cutscene-slice; `npm run check` passes; human playthrough pending. |
 | P5 | Rescue and ending | Integrated on master | RescueScene, rescue-beats, dev launch path merged via feature/p3-combat-arena; `npm run check` passes; manual rescue verification pending. |
-| P6-LOCAL | Continue/local saves and Vercel release | Integrated on master | Continue button, new-run confirmation, resume from save, storage validation merged via phase/6-local-saves; `npm run check` passes (21 assets, 17 tests); 2 save/reload audit tests added. Continue/resume e2e not browser-tested. |
+| P6-LOCAL | Continue/local saves and Vercel release | Integrated on master | Continue button, new-run confirmation, exact map/tile resume and storage validation integrated; 21 November 2026 `npm run check` passes (90 visual + 33 audio assets, 42 tests); Continue/resume covered by headless Chromium checks. Live Vercel deploy still pending. |
 | P6-CLOUD | Optional Supabase authentication/saves | Deferred | After local saves; live isolation and conflict checks required. |
 | P7 | Full playtest and release freeze | Not started | Fresh-player timing, both modes, target hardware and release evidence. |
-| H0-H5 | Separate horde/leveling mode | Deferred | Only after campaign acceptance; see optional guide. |
+| H0-H5 | Separate horde/leveling mode | Horde integrated; progression deferred | Resistance Trials (1m/5m/Unlimited, Easy→DOOM, local scoreboard) is integrated on master; numeric leveling/progression remains deferred per the optional guide. |
+| HORDE-MP | Multiplayer Horde duel | In progress | Shared-code score duel (create/join, same seeded run, duel or team score) for HORDE-MP-001. Supabase backend behind `VITE_SUPABASE_*` with a local pass-and-play fallback; live two-browser check pending credentials. |
 
 ## Task claims and handoffs
 
@@ -355,6 +356,21 @@ Copy this template as a new subsection; replace the placeholders:
 - Next action: a human playthrough of the cutscene portraits (C01–C04), the Man 1/Man 2 c02 portraits, and the rescue beats.
 - Handoff / integration: merged into `master` via PR #1 (merge commit `41cea1b`, merged 20 November 2026); branch `arena/d6ee5f65-unga-bunga-hacknpitch` has no unique commits beyond master.
 
+### HORDE-MP-001 - shared-code multiplayer Horde duel
+
+- Status: In progress
+- Agent/session: OpenCode / deepseek-v4.1-flash-free / horde-multiplayer-20261121
+- Human owner: Project creator (requested this feature)
+- Branch/worktree: `master`, `C:\Users\somen\OneDrive\Desktop\want-main`
+- Started / last updated: 21 November 2026 (Asia/Calcutta)
+- Scope / owned files: `src/game/horde/duel.ts` (new), `src/services/horde-duel.ts` (new), `src/game/horde/rules.ts` (seed/RNG helpers), `src/game/scenes/HordeScene.ts` (seeded spawns + `seed` config), `src/ui/horde-modal.ts` (duel lobby + duel results), `src/main.ts` (duel session wiring), `src/styles.css` (duel UI), `supabase/migrations/202611210001_horde_duels.sql` (new), `supabase/README.md`, `docs/ARCHITECTURE.md`, `tests/horde-duel.test.ts` (new), this tracker entry/log. Solo Horde rules, campaign saves, `RunState`, assets and dependencies unchanged.
+- Acceptance criteria: a player can create a 6-character code and share it; a second player can join by code; both play the same difficulty, duration and spawn seed; both scores are stored once per seat and compared (duel: higher score wins, tie broken by survival then kills; team: combined score); the room shows waiting/completed/winner states; the flow works against Supabase when `VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY` are set and falls back to local pass-and-play without credentials or when the backend is unreachable; no secret/service-role key in browser code; `npm run check` passes.
+- Completed so far: full implementation — `src/game/horde/duel.ts` (pure match rules), `src/services/horde-duel.ts` (Supabase RPC backend + localStorage pass-and-play fallback), seeded Horde runs (`HordeScene` accepts `seed`), duel lobby + results UI (`horde-modal.ts`), main.ts wiring (duel session, backend badge, duel results screen), migration `supabase/migrations/202611210001_horde_duels.sql`, docs/ARCHITECTURE.md and supabase/README.md updates, `tests/horde-duel.test.ts` (12 tests), CSS.
+- Verification: `npm run check` passes (assets:check 90 visual + 33 audio, strict TypeScript, 54/54 Vitest tests across 6 files, production build). Live two-browser credential-free check passed: created code `MAETLK` as P1 (K), joined as P2 (Mai) in a second tab, both seats shared code+seed `360556158`, both entered the arena with matching `DUEL MAETLK P1/P2` headers, and Refresh surfaced the joined seat. Supabase live two-profile check pending the URL/publishable key you said you'd supply.
+- Blockers / remaining work: live Supabase two-profile verification (create in profile A, join in profile B, both submit, winner declared) once you provide `VITE_SUPABASE_URL` + `sb_publishable_…` key. Same-arena co-op remains out of scope (deferred per DECISIONS.md).
+- Next action: await your Supabase credentials, then run the live two-profile check and open a PR per TEAM_WORKFLOW.md.
+- Handoff / integration: local working tree on `master`; no commit or PR yet.
+
 ## Coordination rules
 
 - Read the newest available tracker and inspect the actual files/branch before claiming work. A claim is an ownership note, not a filesystem lock.
@@ -599,4 +615,20 @@ Add concise entries at the bottom; do not rewrite prior entries to make earlier 
 - **21 November 2026 - ARCADE-CRT-UI-001:** restyled the full game shell (`index.html`, `src/main.ts`, `src/styles.css`) into a beveled indigo arcade cabinet framing a curved plum CRT monitor matching the supplied reference (`HI-SCORE`, 5 pixel-art golden hearts, golden-gradient `START` with sheen sweep, `ARE YOU READY?`, interactive `YES ◀ / NO` with CRT Standby power-down & wake-up, CRT power-on boot, CRT warp-through and channel-snap transitions into Mode Select, Horde Arena, and playable gameplay inside the CRT bezel). Verified with `npm run check` (90 visual + 33 audio assets, 42/42 tests) and two rounds of headless Chromium visual/interactive checks at 1440×900 (exact 1070×602 edge-to-edge canvas fit, 0 console errors).
 - **21 November 2026 - HORDE-ENHANCE-001:** rebalanced Horde Mode (`src/game/horde/rules.ts`, `src/game/scenes/HordeScene.ts`) so K scales tougher and harder-hitting through Hard (8/6/5 hits, wave-clear & counter-kill recovery, higher pistol damage/cadence/speed) while Maniac & DOOM strip armor/sustain into pure skill-only gauntlets (2/1 hits, zero heal); added 4 selectable Horde Arena maps plus Random (`src/game/horde/maps.ts`, `src/ui/horde-modal.ts`, `src/services/horde-scores.ts`) with per-match randomized cover generation and safety corridors; expanded Horde Arena to 1440×864 with smooth camera follow and compact tactical minimap; upgraded Horde enemy AI (`src/game/horde/ai.ts`) with predictive lead aiming, cover-aware flanking, coordinated Rusher pincers, and squad separation; boosted default music/SFX volumes with a master DynamicsCompressor limiter (`src/services/preferences.ts`, `src/services/audio.ts`); and showcased `WANT` prominently on the CRT Ready screen (`src/main.ts`, `src/styles.css`). Verified with `npm run check` (90 visual + 33 audio assets, strict TypeScript, 50/50 Vitest tests, Vite build) and two rounds of headless Chromium visual/functional verification at 1440×900 (0 console errors, verified randomized cover regeneration across restarts).
 
+
+### DOC-BRIEF-001 - comprehensive project brief
+- Status: Done (documentation only)
+- Agent/session: OpenCode / deepseek-v4.1-flash-free / brief-20261121
+- Human owner: Project creator
+- Branch/worktree: `master`, `C:\Users\somen\OneDrive\Desktop\want-main`
+- Started / last updated: 21 November 2026 (Asia/Calcutta)
+- Scope / owned files: `brief.md` (the requested `Brief.md`; Windows is case-insensitive and the repository's tracked name remains lowercase) and this `PROGRESS.md` entry. No application, asset, dependency or shared-contract changes.
+- Acceptance criteria: one document explains the game, story, characters, exploration, combat, rescue, Horde mode, UI, architecture, content formats, save schemas, asset/audio pipeline, commands, current status, known gaps and source-of-truth documents; facts match the integrated code rather than the older foundation brief.
+- Completed so far: replaced the stale 14 November foundation brief with a 19-section brief covering the full campaign, exact tuning values, Reflex Combat and snap-reload rules, three rescue beats, ending overlay, Horde tiers/scoring, arcade CRT shell, scene/state boundaries, storage keys, dev routes, test coverage and release gaps; verified dev query parameters, checkpoint/milestone types, storage keys, Horde formulas, rescue queues, interaction range, heart counts and asset/audio counts against the working tree; corrected the tracker's stale top-level position and Horde/asset evidence.
+- Verification: 21 November 2026: `npm test` passed (5 files, 42/42 tests). Facts checked by reading `src/game/rules.ts`, `src/game/horde/rules.ts`, `src/content/campaign.ts`, `src/content/characters.ts`, `src/content/encounters/rescue-beats.ts`, `src/services/*`, `src/main.ts`, `src/game/scenes/*`, `scripts/prepare-assets.mjs`, `assets/runtime-manifest.json` and `assets/inventory.json`; `git remote -v`, `git status --short` and `git log -1` checked. Documentation links/consistency reviewed manually. `npm run check` was not rerun because no application code changed.
+- Blockers / remaining work: full human playthrough, live deployment and final rights confirmation remain outstanding. Older docs (`README.md`, `docs/ARCHITECTURE.md`, `docs/ASSET_CHECKLIST.md`, `docs/VERIFICATION.md`) still describe the foundation era; the brief records that drift.
+- Next action: review the brief for tone/scope, then use it as onboarding and AI context; update it whenever a phase, rule or storage key changes.
+- Handoff / integration: local working-tree changes only on `master`; no commit or PR created. Untracked supplied asset-drop folders remain untouched.
+
+- **21 November 2026 - DOC-BRIEF-001:** rewrote the stale foundation `brief.md` into a comprehensive 19-section project brief covering premise, characters, every campaign beat, controls, exact combat/rescue/Horde rules, CRT UI flow, architecture, data formats, save schemas, asset/audio pipeline, commands, dev routes, status and gaps; verified the facts against the integrated code and 42/42 tests; refreshed the tracker's stale current-position, local-save and Horde evidence. Documentation only; `npm run check` not rerun.
 

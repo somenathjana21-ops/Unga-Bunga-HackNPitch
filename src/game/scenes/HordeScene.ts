@@ -16,7 +16,10 @@ import {
   hordeDurationRules,
   hordeHitsToFall,
   hordeTimeRamp,
+  mulberry32,
+  normalizeSeed,
   pickHordeEnemyKind,
+  randomSeed,
   type HordeDifficulty,
   type HordeDuration,
   type HordeEnemyKind,
@@ -54,6 +57,8 @@ export interface HordeConfig {
   difficulty: HordeDifficulty;
   duration: HordeDuration;
   mapChoice?: HordeMapChoice;
+  /** Shared duel seed; omitted for solo runs (a fresh seed is generated). */
+  seed?: number;
 }
 
 export interface HordeRunResult {
@@ -61,6 +66,7 @@ export interface HordeRunResult {
   difficulty: HordeDifficulty;
   duration: HordeDuration;
   mapId: HordeMapId;
+  seed: number;
   score: number;
   combatScore: number;
   clearBonus: number;
@@ -82,6 +88,7 @@ export class HordeScene extends Phaser.Scene {
     difficulty: 'easy',
     duration: '1m',
     mapChoice: 'warehouse',
+    seed: randomSeed(),
   };
   private activeMapId: HordeMapId = 'warehouse';
   private health = 160;
@@ -91,6 +98,8 @@ export class HordeScene extends Phaser.Scene {
   private player = new Player();
   private playerVx = 0;
   private playerVy = 0;
+  /** Deterministic spawn stream: duel seats share a seed, solo runs get a fresh one. */
+  private rng: () => number = Math.random;
   private enemies: HordeEnemy[] = [];
   private bullets: CombatBullet[] = [];
   private cover: CoverRect[] = [];
@@ -153,6 +162,7 @@ export class HordeScene extends Phaser.Scene {
       difficulty: data.difficulty ?? regConfig?.difficulty ?? 'easy',
       duration: data.duration ?? regConfig?.duration ?? '1m',
       mapChoice: data.mapChoice ?? regConfig?.mapChoice ?? 'warehouse',
+      seed: normalizeSeed(data.seed ?? regConfig?.seed ?? randomSeed()),
     };
   }
 
@@ -486,6 +496,7 @@ export class HordeScene extends Phaser.Scene {
 
   private resetRunState(): void {
     const rule = hordeDifficultyRules[this.config.difficulty];
+    this.rng = mulberry32(this.config.seed ?? randomSeed());
     this.health = rule.playerMaxHealth;
     this.invulnerableUntil = 0;
     this.hitAttackIds.clear();
@@ -973,21 +984,21 @@ export class HordeScene extends Phaser.Scene {
     let x = 0;
     let y = 0;
     let placed = false;
-
     // Prefer spawning on a tactical ring around K (300..620px away) so the larger 1440x864 arena
     // stays dynamic and readable rather than spawning units far off in empty corners.
+    // Deterministic via this.rng() so duel seats sharing a seed get identical placement.
     for (let i = 0; i < 48; i++) {
       if (i < 32) {
-        const angle = Math.random() * Math.PI * 2;
-        const radius = SAFE_SPAWN_DIST + 40 + Math.random() * (MAX_SPAWN_RING_DIST - SAFE_SPAWN_DIST - 40);
+        const angle = this.rng() * Math.PI * 2;
+        const radius = SAFE_SPAWN_DIST + 40 + this.rng() * (MAX_SPAWN_RING_DIST - SAFE_SPAWN_DIST - 40);
         x = Math.min(Math.max(this.player.x + Math.cos(angle) * radius, minX + 12), maxX - 12);
         y = Math.min(Math.max(this.player.y + Math.sin(angle) * radius, minY + 12), maxY - 12);
       } else {
-        const side = Math.floor(Math.random() * 4);
-        if (side === 0) { x = minX + Math.random() * (maxX - minX); y = minY + 10; }
-        else if (side === 1) { x = minX + Math.random() * (maxX - minX); y = maxY - 10; }
-        else if (side === 2) { x = minX + 10; y = minY + Math.random() * (maxY - minY); }
-        else { x = maxX - 10; y = minY + Math.random() * (maxY - minY); }
+        const side = Math.floor(this.rng() * 4);
+        if (side === 0) { x = minX + this.rng() * (maxX - minX); y = minY + 10; }
+        else if (side === 1) { x = minX + this.rng() * (maxX - minX); y = maxY - 10; }
+        else if (side === 2) { x = minX + 10; y = minY + this.rng() * (maxY - minY); }
+        else { x = maxX - 10; y = minY + this.rng() * (maxY - minY); }
       }
 
       if (Math.hypot(x - this.player.x, y - this.player.y) < SAFE_SPAWN_DIST) continue;
@@ -1247,6 +1258,7 @@ export class HordeScene extends Phaser.Scene {
       difficulty: this.config.difficulty,
       duration: this.config.duration,
       mapId: this.activeMapId,
+      seed: this.config.seed ?? 0,
       score: totalScore,
       combatScore,
       clearBonus,
