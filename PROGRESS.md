@@ -650,3 +650,22 @@ Add concise entries at the bottom; do not rewrite prior entries to make earlier 
 
 - **21 November 2026 - HORDE-MP-SUPABASE-FALLBACK:** fixed the `The duel service returned an unexpected error.` error shown in the Multiplayer Duel panel (both Duel and Team modes) when `VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY` are set but the `horde_duels` migration is not applied to the project, so `create_horde_duel`/`join_horde_duel` RPCs fail. `src/services/horde-duel.ts`: `getHordeDuelBackend()` now wraps a configured Supabase client in `FallbackHordeDuelBackend`, which degrades to local pass-and-play on the first failed RPC and stays local for the session, so create/join/submit never stay blocked. `src/ui/horde-modal.ts`: re-syncs the duel backend badge label/`data-backend` on every room render, so it reads `Local pass-and-play (duel service unavailable)` after degradation. Added two fallback cases to `tests/horde-duel.test.ts`. Verified with `npm run check`: assets:check (90 visual + 33 audio), strict TypeScript clean, 72/72 Vitest tests across 6 files, production build (expected Phaser chunk warning). Local, uncommitted; live Supabase two-profile check still pending credentials.
 
+### HORDE-MP-CROSSMACHINE-001 - diagnose and fix cross-machine multiplayer duel code not found issue
+- Status: Ready for review
+- Agent/session: Antigravity / duel-not-found-diagnosis-20261121
+- Human owner: Unassigned
+- Branch/worktree: `master`, `C:/Users/somen/OneDrive/Desktop/want-main` (uncommitted)
+- Started / last updated: 21 November 2026 (Asia/Calcutta)
+- Scope / owned files: `src/services/horde-duel.ts`, `src/ui/horde-modal.ts`, `tests/horde-duel.test.ts`, `PROGRESS.md`.
+- Acceptance criteria: identify the root cause of the "That duel code was not found" error when attempting to join a duel code created on another machine; provide instructions for applying the required Supabase migration (`supabase/migrations/202611210001_horde_duels.sql`) and environment configuration; improve application UX by clearly explaining in the error message and UI that the room is in local pass-and-play mode when the online duel service is unavailable; ensure `npm run check` passes clean (76/76 Vitest tests).
+- Completed so far: 
+  1. Identified root cause: the database migration `supabase/migrations/202611210001_horde_duels.sql` has not been applied to the Supabase instance (`kujxvttfdyascnsnwwdd.supabase.co`), causing RPCs (`create_horde_duel`, `join_horde_duel`) to fail with PGRST202 (not found). `FallbackHordeDuelBackend` degraded to local `localStorage` on Machine 1, meaning the room code existed only on Machine 1's browser and could never be found by Machine 2.
+  2. Enhanced error messaging in `src/services/horde-duel.ts`: `LocalHordeDuelBackend` and `FallbackHordeDuelBackend` now clarify when a room is not found that local pass-and-play only works within the same browser/machine because the online duel service is unavailable.
+  3. Improved UI responsiveness in `src/ui/horde-modal.ts`: synced the duel backend badge on all actions (create/join error paths) and added clear local pass-and-play notices on the created duel room view when degraded.
+  4. Added regression tests in `tests/horde-duel.test.ts` (17 tests, 76/76 suite total).
+- Verification: 21 November 2026 — `npm run check` passed: assets check (90 visual, 33 audio), strict TypeScript check, 76/76 Vitest tests passing, production build succeeded.
+- Next action: provide the user with clear instructions to run the SQL migration in the Supabase Dashboard and verify `.env.local` on both machines.
+- Handoff / integration: local uncommitted changes on `master`.
+
+- **21 November 2026 - HORDE-MP-CROSSMACHINE-001:** diagnosed cross-machine "duel code not found" issue. Root cause is unapplied migration `supabase/migrations/202611210001_horde_duels.sql` in the Supabase project, which caused silent degradation to `localStorage` on the host machine. Improved UI clarity and error messages for degraded/local states; verified with `npm run check` (76/76 tests passing).
+

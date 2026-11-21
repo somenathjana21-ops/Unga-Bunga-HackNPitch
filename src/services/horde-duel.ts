@@ -300,7 +300,12 @@ export class LocalHordeDuelBackend implements HordeDuelBackend {
 
     const file = this.read();
     const room = file.rooms[cleanCode];
-    if (!room) return fail('ROOM_NOT_FOUND', 'That duel code was not found.');
+    if (!room) {
+      return fail(
+        'ROOM_NOT_FOUND',
+        'That duel code was not found in this browser. Local pass-and-play only works on the same machine/browser.',
+      );
+    }
     if (isExpired(room.expiresAt)) return fail('ROOM_EXPIRED', 'This duel code has expired.');
     if (room.players.length >= 2) return fail('ROOM_FULL', 'This duel already has two players.');
     if (room.players.some((p) => p.name.toLowerCase() === name.toLowerCase())) {
@@ -405,7 +410,18 @@ export class FallbackHordeDuelBackend implements HordeDuelBackend {
   }
 
   async join(code: string, playerName: string): Promise<DuelResponse<DuelSession>> {
-    return this.run(() => this.supabase.join(code, playerName), () => this.local.join(code, playerName));
+    const res = await this.run(() => this.supabase.join(code, playerName), () => this.local.join(code, playerName));
+    if (!res.ok && res.error.code === 'ROOM_NOT_FOUND' && this.degraded) {
+      return {
+        ok: false,
+        error: {
+          code: 'ROOM_NOT_FOUND',
+          message:
+            'That duel code was not found. (The online duel service is unavailable; codes created on another machine cannot be joined in local pass-and-play mode.)',
+        },
+      };
+    }
+    return res;
   }
 
   async get(code: string): Promise<DuelResponse<DuelRoom>> {

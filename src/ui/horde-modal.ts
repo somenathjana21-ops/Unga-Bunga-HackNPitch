@@ -389,8 +389,11 @@ export function mountHordeLobby(host: HTMLElement, options: HordeLobbyOptions): 
   const duelBackendBadge = host.querySelector<HTMLElement>('#duel-backend-badge')!;
   const soloStartBtn = host.querySelector<HTMLButtonElement>('#horde-start-btn')!;
 
-  duelBackendBadge.textContent = options.duelBackend.label;
-  duelBackendBadge.dataset.backend = options.duelBackend.kind;
+  const syncDuelBadge = () => {
+    duelBackendBadge.textContent = options.duelBackend.label;
+    duelBackendBadge.dataset.backend = options.duelBackend.kind;
+  };
+  syncDuelBadge();
 
   const showDuelError = (message: string) => {
     duelErrorEl.textContent = message;
@@ -402,8 +405,7 @@ export function mountHordeLobby(host: HTMLElement, options: HordeLobbyOptions): 
   };
 
   const renderDuelRoom = () => {
-    duelBackendBadge.textContent = options.duelBackend.label;
-    duelBackendBadge.dataset.backend = options.duelBackend.kind;
+    syncDuelBadge();
     if (!duelSession) {
       duelRoomEl.hidden = true;
       duelRoomEl.innerHTML = '';
@@ -415,6 +417,8 @@ export function mountHordeLobby(host: HTMLElement, options: HordeLobbyOptions): 
     const room = duelSession.room;
     const complete = room.status === 'complete' || room.expired;
     const diff = hordeDifficultyRules[room.difficulty];
+    const isLocal = options.duelBackend.kind === 'local';
+    const isDegraded = isLocal && options.duelBackend.label.includes('unavailable');
     duelSetupActions.hidden = true;
     soloStartBtn.disabled = complete;
     soloStartBtn.textContent = complete ? 'Duel Complete' : 'Enter Duel Arena ↗';
@@ -422,7 +426,7 @@ export function mountHordeLobby(host: HTMLElement, options: HordeLobbyOptions): 
     duelRoomEl.innerHTML = `
       <div class="duel-room-head">
         <div>
-          <span class="duel-code-label">Share this code</span>
+          <span class="duel-code-label">${isLocal ? 'Pass-and-play code (this browser only)' : 'Share this code'}</span>
           <strong class="duel-code">${room.code}</strong>
         </div>
         <button type="button" id="duel-copy" class="secondary">Copy</button>
@@ -433,7 +437,11 @@ export function mountHordeLobby(host: HTMLElement, options: HordeLobbyOptions): 
       </p>
       <div class="duel-players">${renderDuelPlayers(room, duelSession.seat)}</div>
       <p class="duel-hint">
-        ${complete
+        ${isDegraded
+          ? '⚠️ Local pass-and-play active: Player 2 must join from this same browser/machine. Cloud duel service is unavailable, so this code is not accessible on other machines.'
+          : isLocal
+          ? 'Local pass-and-play mode: Player 2 joins from this same browser/machine to compete.'
+          : complete
           ? 'This match is complete. Create a new code to play again.'
           : 'Both players finish one run in this room. Each seat can submit exactly one score.'}
       </p>
@@ -515,6 +523,7 @@ export function mountHordeLobby(host: HTMLElement, options: HordeLobbyOptions): 
     });
     duelBusy = false;
     duelCreateBtn.disabled = false;
+    syncDuelBadge();
     if (!res.ok) {
       showDuelError(res.error.message);
       return;
@@ -541,6 +550,7 @@ export function mountHordeLobby(host: HTMLElement, options: HordeLobbyOptions): 
     const res = await options.duelBackend.join(code, playerName);
     duelBusy = false;
     duelJoinBtn.disabled = false;
+    syncDuelBadge();
     if (!res.ok) {
       showDuelError(res.error.message);
       return;

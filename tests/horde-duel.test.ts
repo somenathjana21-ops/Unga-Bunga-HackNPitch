@@ -201,7 +201,10 @@ describe('local duel backend', () => {
 
     const missing = await backend.join('ZZZ999', 'Mai');
     expect(missing.ok).toBe(false);
-    if (!missing.ok) expect(missing.error.code).toBe('ROOM_NOT_FOUND');
+    if (!missing.ok) {
+      expect(missing.error.code).toBe('ROOM_NOT_FOUND');
+      expect(missing.error.message).toContain('this browser');
+    }
   });
 });
 
@@ -299,5 +302,21 @@ describe('duel backend fallback', () => {
     expect(created.ok).toBe(true);
     if (!created.ok) return;
     expect(backend.kind).toBe('local'); // network failure degrades the session
+  });
+
+  it('clarifies missing room in degraded mode is due to unavailable online service', async () => {
+    const failing = () =>
+      Promise.resolve({
+        data: null,
+        error: { message: 'Could not find function public.join_horde_duel', details: '', hint: '' },
+      });
+    const client = { rpc: failing } as unknown as SupabaseClient;
+    const backend = new FallbackHordeDuelBackend(client, new MemoryStore());
+    const res = await backend.join('ABC234', 'Mai');
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe('ROOM_NOT_FOUND');
+      expect(res.error.message).toContain('online duel service is unavailable');
+    }
   });
 });
