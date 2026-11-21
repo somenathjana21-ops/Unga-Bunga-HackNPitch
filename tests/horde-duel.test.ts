@@ -9,7 +9,8 @@ import {
   type DuelRoomPlayer,
   type DuelRunStats,
 } from '../src/game/horde/duel';
-import { LocalHordeDuelBackend } from '../src/services/horde-duel';
+import { FallbackHordeDuelBackend, LocalHordeDuelBackend } from '../src/services/horde-duel';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { mulberry32, normalizeSeed, randomSeed } from '../src/game/horde/rules';
 
 class MemoryStore {
@@ -201,5 +202,70 @@ describe('local duel backend', () => {
     const missing = await backend.join('ZZZ999', 'Mai');
     expect(missing.ok).toBe(false);
     if (!missing.ok) expect(missing.error.code).toBe('ROOM_NOT_FOUND');
+  });
+});
+
+describe('duel backend fallback', () => {
+  it('degrades to local pass-and-play when Supabase calls fail', async () => {
+    const failing = () =>
+      Promise.resolve({
+        data: null,
+        error: { message: 'function create_horde_duel does not exist', details: '', hint: '' },
+      });
+    const client = { rpc: failing } as unknown as SupabaseClient;
+    const backend = new FallbackHordeDuelBackend(client, new MemoryStore());
+    expect(backend.kind).toBe('supabase');
+
+    const created = await backend.create({
+      hostName: 'K',
+      difficulty: 'easy',
+      duration: '1m',
+      matchMode: 'duel',
+      seed: 1,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    expect(backend.kind).toBe('local'); // degraded after the first failing RPC
+    expect(created.data.room.code).toHaveLength(6);
+    expect(created.data.seat).toBe(1);
+
+    const joined = await backend.join(created.data.room.code, 'Mai');
+    expect(joined.ok).toBe(true);
+    if (!joined.ok) return;
+    expect(joined.data.seat).toBe(2);
+
+    const full = await backend.join(created.data.room.code, 'Isshin');
+    expect(full.ok).toBe(false);
+    if (!full.ok) expect(full.error.code).toBe('ROOM_FULL');
+
+    const submitted = await backend.submit(joined.data, stats({ score: 5100, kills: 25 }));
+    expect(submitted.ok).toBe(true);
+    if (!submitted.ok) return;
+    expect(submitted.data.status).toBe('open'); // host seat still outstanding
+
+    const hostSubmitted = await backend.submit(created.data, stats({ score: 4200, kills: 21 }));
+    expect(hostSubmitted.ok).toBe(true);
+    if (!hostSubmitted.ok) return;
+    expect(hostSubmitted.data.status).toBe('complete');
+
+    const duplicate = await backend.submit(joined.data, stats({ score: 9999 }));
+    expect(duplicate.ok).toBe(false);
+    if (!duplicate.ok) expect(duplicate.error.code).toBe('ALREADY_FINISHED');
+  });
+
+  it('labels itself local once degraded', async () => {
+    const failing = () => Promise.resolve({ data: null, error: { message: 'Failed', details: '', hint: '' } });
+    const client = { rpc: failing } as unknown as SupabaseClient;
+    const backend = new FallbackHordeDuelBackend(client);
+    expect(backend.label).toBe('Supabase online');
+    await backend.create({
+      hostName: 'K',
+      difficulty: 'easy',
+      duration: '1m',
+      matchMode: 'duel',
+      seed: 1,
+    });
+    expect(backend.kind).toBe('local');
+    expect(backend.label).toBe('Local pass-and-play (duel service unavailable)');
   });
 });

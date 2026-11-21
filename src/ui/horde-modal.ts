@@ -402,6 +402,8 @@ export function mountHordeLobby(host: HTMLElement, options: HordeLobbyOptions): 
   };
 
   const renderDuelRoom = () => {
+    duelBackendBadge.textContent = options.duelBackend.label;
+    duelBackendBadge.dataset.backend = options.duelBackend.kind;
     if (!duelSession) {
       duelRoomEl.hidden = true;
       duelRoomEl.innerHTML = '';

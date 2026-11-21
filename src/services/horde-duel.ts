@@ -354,15 +354,73 @@ export class LocalHordeDuelBackend implements HordeDuelBackend {
   }
 }
 
+/**
+ * Supabase duel backend that degrades to local pass-and-play the first time
+ * the cloud backend fails (missing migration, network down, unreachable).
+ * Once degraded it stays local for the rest of the session, so a single
+ * broken RPC call can never keep blocking create/join/submit.
+ */
+export class FallbackHordeDuelBackend implements HordeDuelBackend {
+  private readonly supabase: SupabaseHordeDuelBackend;
+  private readonly local: LocalHordeDuelBackend;
+  private degraded = false;
+
+  constructor(client: SupabaseClient, storage?: Store) {
+    this.supabase = new SupabaseHordeDuelBackend(client);
+    this.local = new LocalHordeDuelBackend(storage);
+  }
+
+  get kind(): HordeDuelBackend['kind'] {
+    return this.degraded ? 'local' : 'supabase';
+  }
+
+  get label(): string {
+    return this.degraded
+      ? 'Local pass-and-play (duel service unavailable)'
+      : 'Supabase online';
+  }
+
+  private async run<T>(
+    supabaseCall: () => Promise<DuelResponse<T>>,
+    localCall: () => Promise<DuelResponse<T>>,
+  ): Promise<DuelResponse<T>> {
+    if (this.degraded) return localCall();
+    const res = await supabaseCall();
+    if (res.ok) return res;
+    this.degraded = true;
+    console.warn('Supabase duel backend unavailable; degrading to local pass-and-play.', res.error);
+    return localCall();
+  }
+
+  async create(input: CreateDuelInput): Promise<DuelResponse<DuelSession>> {
+    return this.run(() => this.supabase.create(input), () => this.local.create(input));
+  }
+
+  async join(code: string, playerName: string): Promise<DuelResponse<DuelSession>> {
+    return this.run(() => this.supabase.join(code, playerName), () => this.local.join(code, playerName));
+  }
+
+  async get(code: string): Promise<DuelResponse<DuelRoom>> {
+    return this.run(() => this.supabase.get(code), () => this.local.get(code));
+  }
+
+  async submit(session: DuelSession, stats: DuelRunStats): Promise<DuelResponse<DuelRoom>> {
+    return this.run(() => this.supabase.submit(session, stats), () => this.local.submit(session, stats));
+  }
+}
+
 let cachedBackend: HordeDuelBackend | null = null;
 
-/** Supabase when configured; local otherwise. Never throws during startup. */
+/** Supabase when configured and reachable; local pass-and-play otherwise.
+ *  A configured Supabase backend that fails (missing migration, network,
+ *  unreachable) degrades to local so dueling never stays blocked.
+ *  Never throws during startup. */
 export function getHordeDuelBackend(): HordeDuelBackend {
   if (cachedBackend) return cachedBackend;
   try {
     const client = createOptionalSupabaseClient();
     if (client) {
-      cachedBackend = new SupabaseHordeDuelBackend(client);
+      cachedBackend = new FallbackHordeDuelBackend(client);
       return cachedBackend;
     }
   } catch (error) {
