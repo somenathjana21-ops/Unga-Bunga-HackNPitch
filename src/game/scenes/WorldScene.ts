@@ -5,16 +5,19 @@ import { characters } from '../../content/characters';
 import {
   createStoryProgress, completeSequence, hasFlag, setFlag,
   enterMap, markSettlementInteraction, areAllSettlementInteractionsDone,
+  VALID_WORLD_MAPS, mapToCheckpoint, serializeStoryProgress, deserializeStoryProgress,
 } from '../story-state';
-import type { StoryProgress } from '../story-state';
+import type { StoryProgress, StoryProgressSnapshot } from '../story-state';
 import { dialogueSequences } from '../../content/dialogue/sequences';
 import { playCutsceneOverlay, isCutsceneActive } from '../../ui/cutscene-player';
 import { loadPreferences } from '../../services/preferences';
-import { saveRun } from '../../services/local-save';
+import { loadStoryProgress, saveRun, saveStoryProgress } from '../../services/local-save';
+import { enterCheckpoint, newRun } from '../state';
 import type { RunState } from '../state';
 import type { Difficulty } from '../rules';
 import type { Milestone } from '../../content/campaign';
 import { SPRITE_DISPLAY } from '../sprite-metrics';
+import { audio, type AmbienceTrack, type CueName, type MusicTrack } from '../../services/audio';
 
 /** Display name for each character ID, used by the on-map NPC labels. */
 const characterNames: Record<string, string> = Object.fromEntries(
@@ -130,24 +133,126 @@ export class WorldScene extends Phaser.Scene {
   }
 
   create() {
-    this.progress = createStoryProgress();
+    const validMaps = new Set<string>(VALID_WORLD_MAPS);
+    const requestedMap = new URLSearchParams(window.location.search).get('map');
+    const hasDevMapOverride = Boolean(requestedMap && validMaps.has(requestedMap));
+
+    // Restore saved story progress unless an explicit ?map= dev override was requested.
+    let restoredTile: MapPosition | undefined;
+    const registrySnapshot = this.registry.get('storySnapshot') as StoryProgressSnapshot | null;
+    const loadedStory = hasDevMapOverride ? null : loadStoryProgress();
+    const storedSnapshot: StoryProgressSnapshot | null =
+      registrySnapshot ?? (loadedStory && loadedStory.status === 'ok' ? loadedStory.snapshot : null);
+
+    if (storedSnapshot && !hasDevMapOverride) {
+      this.progress = deserializeStoryProgress(storedSnapshot);
+      this.visitedMaps = new Set(storedSnapshot.visitedMaps);
+      if (storedSnapshot.tile) {
+        const targetMap = getMap(this.progress.currentMap);
+        if (canWalkTo(targetMap, storedSnapshot.tile.x, storedSnapshot.tile.y)) {
+          restoredTile = { ...storedSnapshot.tile };
+        }
+      }
+    } else {
+      this.progress = createStoryProgress();
+      this.visitedMaps = new Set();
+    }
 
     this.keys = this.input.keyboard!.addKeys('W,A,S,D,UP,LEFT,DOWN,RIGHT,E,ESC') as typeof this.keys;
     this.input.keyboard!.addCapture(['UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE']);
-    this.input.keyboard!.on('keydown-E', () => this.tryInteract());
-    this.input.keyboard!.on('keydown-ESC', () => {
+
+    const onInteractKey = () => {
+      audio.unlock();
+      this.tryInteract();
+    };
+    const onEscKey = () => {
       if (!this.scene.isActive('DialogueScene') && !isCutsceneActive()) {
+        this.persistProgress();
         document.querySelector<HTMLButtonElement>('#back-to-menu')?.click();
       }
+    };
+    const onFlushSave = () => {
+      this.persistProgress();
+    };
+
+    this.input.keyboard!.on('keydown-E', onInteractKey);
+    this.input.keyboard!.on('keydown-ESC', onEscKey);
+    window.addEventListener('want:flush-save', onFlushSave);
+
+    this.events.once('shutdown', () => {
+      window.removeEventListener('want:flush-save', onFlushSave);
+      this.input.keyboard?.off('keydown-E', onInteractKey);
+      this.input.keyboard?.off('keydown-ESC', onEscKey);
+      this.input.keyboard?.removeAllKeys(true);
     });
 
-    const requestedMap = new URLSearchParams(window.location.search).get('map');
-    const validMaps = new Set(['campus', 'library', 'dorm', 'clinic', 'settlement']);
-    const startMap = requestedMap && validMaps.has(requestedMap) ? requestedMap : 'campus';
-    this.loadMap(startMap);
+    const startMap = hasDevMapOverride && requestedMap
+      ? requestedMap
+      : (validMaps.has(this.progress.currentMap) ? this.progress.currentMap : 'campus');
+
+    this.loadMap(startMap, restoredTile, Boolean(storedSnapshot && !hasDevMapOverride));
   }
 
-  private loadMap(mapId: string, spawnOverride?: MapPosition) {
+  private getAudioForMap(mapId: string): { music: MusicTrack; ambience: AmbienceTrack } {
+    switch (mapId) {
+      case 'campus':
+      case 'library':
+        return { music: 'campus', ambience: 'campus' };
+      case 'dorm':
+        if (hasFlag(this.progress, 'breach-woke')) {
+          return { music: 'future', ambience: 'ruined-city' };
+        }
+        return { music: 'campus', ambience: 'dorm' };
+      case 'clinic':
+      case 'settlement':
+      default:
+        return { music: 'future', ambience: 'clinic-camp' };
+    }
+  }
+
+  private footstepCueForMap(mapId: string): CueName {
+    if (mapId === 'dorm' || mapId === 'clinic') return 'step-interior';
+    if (mapId === 'settlement') return 'step-debris';
+    return 'step-campus';
+  }
+
+  private buildCurrentRunState(): RunState {
+    const difficulty = (this.registry.get('difficulty') as Difficulty) ?? 'story';
+    const initial = this.registry.get('initialRunState') as RunState | null;
+    const base: RunState = initial
+      ? {
+          ...initial,
+          health: (this.registry.get('health') as number) ?? initial.health,
+          milestones: (this.registry.get('milestones') as Milestone[]) ?? initial.milestones,
+          counterUnlocked: (this.registry.get('counterUnlocked') as boolean) ?? initial.counterUnlocked,
+          rescueStatus: (this.registry.get('rescueStatus') as RunState['rescueStatus']) ?? initial.rescueStatus,
+        }
+      : {
+          ...newRun(difficulty),
+          health: (this.registry.get('health') as number) ?? 100,
+          milestones: (this.registry.get('milestones') as Milestone[]) ?? [],
+          counterUnlocked: (this.registry.get('counterUnlocked') as boolean) ?? false,
+          rescueStatus: (this.registry.get('rescueStatus') as RunState['rescueStatus']) ?? 'not-started',
+        };
+    const nextCheckpoint = mapToCheckpoint(this.map?.id ?? this.progress.currentMap);
+    return enterCheckpoint(base, nextCheckpoint);
+  }
+
+  private persistProgress(): void {
+    if (!this.map || !this.progress) return;
+    this.progress.visitedMaps = new Set(this.visitedMaps);
+    this.progress.tile = { ...this.tile };
+    const snapshot = serializeStoryProgress(this.progress, this.tile);
+    saveStoryProgress(snapshot);
+    this.registry.set('storySnapshot', snapshot);
+
+    const runState = this.buildCurrentRunState();
+    this.registry.set('checkpoint', runState.checkpoint);
+    this.registry.set('initialRunState', runState);
+    saveRun(runState);
+  }
+
+  private loadMap(mapId: string, spawnOverride?: MapPosition, isRestore = false) {
     // Clean up previous map objects
     this.npcSprites.forEach(s => {
       this.tweens.killTweensOf(s);
@@ -179,13 +284,14 @@ export class WorldScene extends Phaser.Scene {
 
     const oldMap = this.map;
     this.map = getMap(mapId);
-    // Preserve a story-advanced objective when revisiting an earlier room
-    // (e.g. "Go home." must not regress when backtracking), while adopting the
-    // new room's objective on first entry (e.g. dorm -> clinic must not keep
-    // "Check the door.").
+    // Preserve a story-advanced objective when restoring a saved session or
+    // revisiting an earlier room, while adopting the new room's objective on
+    // first entry (e.g. dorm -> clinic must not keep "Check the door.").
     const revisited = this.visitedMaps.has(mapId);
     let nextObjective = this.map.objective;
-    if (revisited && oldMap && this.progress.objective !== oldMap.objective) {
+    if (isRestore && this.progress.objective) {
+      nextObjective = this.progress.objective;
+    } else if (revisited && oldMap && this.progress.objective !== oldMap.objective) {
       nextObjective = this.progress.objective;
     }
     this.visitedMaps.add(mapId);
@@ -195,6 +301,10 @@ export class WorldScene extends Phaser.Scene {
 
     document.body.dataset.scene = 'world';
     document.body.dataset.map = mapId;
+    document.body.dataset.tile = `${this.tile.x},${this.tile.y}`;
+
+    const sceneAudio = this.getAudioForMap(mapId);
+    audio.setSceneAudio(sceneAudio.music, sceneAudio.ambience);
 
     this.drawMap();
     this.spawnDoorMarkers();
@@ -203,6 +313,7 @@ export class WorldScene extends Phaser.Scene {
     this.spawnPlayer();
     this.createObjectiveUI();
     this.updatePrompt();
+    this.persistProgress();
 
     // Auto-trigger clinic wake sequence
     if (mapId === 'clinic' && !hasFlag(this.progress, 'clinic-woke')) {
@@ -572,6 +683,8 @@ export class WorldScene extends Phaser.Scene {
     this.tile.x += dx;
     this.tile.y += dy;
     this.moving = true;
+    audio.unlock();
+    audio.playCue(this.footstepCueForMap(this.map.id));
 
     // Play walk animation
     this.player.play(walkAnim);
@@ -600,6 +713,8 @@ export class WorldScene extends Phaser.Scene {
         this.moving = false;
         // Return to idle
         this.player.play('k-idle');
+        document.body.dataset.tile = `${this.tile.x},${this.tile.y}`;
+        this.persistProgress();
         this.checkTriggers();
         this.checkDoors();
         this.updatePrompt();
@@ -632,17 +747,17 @@ export class WorldScene extends Phaser.Scene {
   }
 
   private startRescueMission() {
+    this.persistProgress();
     const runState: RunState = {
-      version: 1,
-      mode: 'campaign',
-      difficulty: (this.registry.get('difficulty') as Difficulty) ?? 'story',
-      health: (this.registry.get('health') as number) ?? 100,
+      ...this.buildCurrentRunState(),
       checkpoint: 'rescue-start',
-      milestones: (this.registry.get('milestones') as Milestone[]) ?? [],
-      counterUnlocked: (this.registry.get('counterUnlocked') as boolean) ?? false,
       rescueStatus: 'active',
     };
+    this.registry.set('checkpoint', 'rescue-start');
+    this.registry.set('rescueStatus', 'active');
+    this.registry.set('initialRunState', runState);
     saveRun(runState);
+    audio.playCue('gate-open');
     this.scene.start('rescue', {
       state: runState,
       difficulty: runState.difficulty,
@@ -705,6 +820,12 @@ export class WorldScene extends Phaser.Scene {
   private startDialogue(sequenceId: string) {
     if (this.scene.isActive('DialogueScene')) return;
 
+    if (sequenceId === 'campus-wallet') audio.playCue('wallet-drop');
+    else if (sequenceId === 'dorm-tv-news' || sequenceId === 'settlement-shelter-board') audio.playCue('radio-connect');
+    else if (sequenceId === 'library-bracelet-scene') audio.playCue('bracelet-drop');
+    else if (sequenceId === 'breach-attack') audio.playCue('machine-shriek');
+    else audio.playCue('ui-confirm');
+
     this.scene.launch('DialogueScene', {
       sequenceId,
       onComplete: (seqId: string, flag: string, choiceFlag?: string) => this.onDialogueComplete(seqId, flag, choiceFlag),
@@ -721,11 +842,14 @@ export class WorldScene extends Phaser.Scene {
     if (completionFlag === 'breach-woke') {
       this.progress.objective = 'Check the door.';
       this.objectiveText.setText(`Objective: ${this.progress.objective}`);
+      audio.playCue('power-cut');
+      audio.setSceneAudio('future', 'ruined-city');
       if (this.textures.exists('bg-moonlit-dorm-void-doorway')) {
         this.backgroundSprite?.setTexture('bg-moonlit-dorm-void-doorway');
         this.backgroundSprite?.setDisplaySize(this.scale.width, this.scale.height);
       }
     } else if (completionFlag === 'breach-door-examined') {
+      audio.playCue('muffled-blast');
       // Auto-trigger the breach attack immediately after examining the door
       this.time.delayedCall(600, () => {
         if (this.map.id === 'dorm' && !hasFlag(this.progress, 'breach-survived')) {
@@ -815,15 +939,11 @@ export class WorldScene extends Phaser.Scene {
       });
     }
 
-    // Refresh doors, NPCs, and markers to reflect new state
+    // Refresh doors, NPCs, markers, and persist updated story progress
     this.spawnDoorMarkers();
     this.spawnNpcs();
     this.spawnInteractableMarkers();
     this.updatePrompt();
-  }
-
-  shutdown() {
-    this.input.keyboard?.removeAllListeners();
-    this.input.keyboard?.removeAllKeys(true);
+    this.persistProgress();
   }
 }

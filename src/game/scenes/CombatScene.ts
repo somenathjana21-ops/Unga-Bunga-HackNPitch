@@ -137,9 +137,10 @@ export class CombatScene extends Phaser.Scene {
 
     // Input
     this.keys = this.input.keyboard!.addKeys(
-      'W,A,S,D,UP,LEFT,DOWN,RIGHT,SPACE,ESC,M,R',
+      'W,A,S,D,UP,LEFT,DOWN,RIGHT,SPACE,ESC,M,R,ENTER',
     ) as Record<string, Phaser.Input.Keyboard.Key>;
     this.input.keyboard!.addCapture(['UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE', 'ESC', 'M', 'R']);
+    audio.setSceneAudio('rescue', 'ruined-city');
 
     const onPointerDown = (_pointer: Phaser.Input.Pointer, currentlyOver: Phaser.GameObjects.GameObject[]) => {
       if (currentlyOver.length > 0) return;
@@ -257,20 +258,26 @@ export class CombatScene extends Phaser.Scene {
 
     // Game Over overlay
     this.gameOverPanel = this.add.container(width / 2, height / 2).setDepth(130).setVisible(false);
-    const goBg = this.add.rectangle(0, 0, 340, 168, 0x111827, 0.96).setStrokeStyle(2, 0xef4444);
-    const goTitle = this.add.text(0, -50, 'GAME OVER', {
+    const goBg = this.add.rectangle(0, 0, 350, 196, 0x111827, 0.96).setStrokeStyle(2, 0xef4444);
+    const goTitle = this.add.text(0, -68, 'GAME OVER', {
       fontSize: '24px', fontFamily: 'monospace', color: '#ef4444',
     }).setOrigin(0.5);
-    const goHint = this.add.text(0, -10, 'K is down. The attempt failed.', {
+    const goHint = this.add.text(0, -28, 'K is down. The attempt failed.', {
       fontSize: '14px', fontFamily: 'monospace', color: '#e2e8f0',
     }).setOrigin(0.5);
-    this.restartBtn = this.add.rectangle(0, 40, 200, 36, 0x4cc9f0)
+    this.restartBtn = this.add.rectangle(0, 18, 224, 36, 0xe3b16b)
       .setInteractive({ useHandCursor: true }).setDepth(131);
     this.restartBtn.on('pointerdown', () => this.restartMission());
-    this.restartBtnText = this.add.text(0, 40, 'Restart mission', {
-      fontSize: '15px', fontFamily: 'monospace', color: '#0f172a',
+    this.restartBtnText = this.add.text(0, 18, 'Restart [R / Enter]', {
+      fontSize: '14px', fontFamily: 'monospace', fontStyle: 'bold', color: '#0f172a',
     }).setOrigin(0.5).setDepth(132);
-    this.gameOverPanel.add([goBg, goTitle, goHint, this.restartBtn, this.restartBtnText]);
+    const returnBtn = this.add.rectangle(0, 66, 224, 36, 0x334155)
+      .setInteractive({ useHandCursor: true }).setDepth(131);
+    returnBtn.on('pointerdown', () => window.dispatchEvent(new CustomEvent('want:return-to-title')));
+    const returnBtnText = this.add.text(0, 66, 'Return to title [Esc]', {
+      fontSize: '14px', fontFamily: 'monospace', color: '#ffffff',
+    }).setOrigin(0.5).setDepth(132);
+    this.gameOverPanel.add([goBg, goTitle, goHint, this.restartBtn, this.restartBtnText, returnBtn, returnBtnText]);
 
     // Spawn opening Scout + Rusher
     this.spawnEnemy('scout', this.simNow);
@@ -292,7 +299,14 @@ export class CombatScene extends Phaser.Scene {
   }
 
   update(_time: number, rawDt: number) {
-    if (this.defeated) return;
+    if (this.defeated) {
+      if (Phaser.Input.Keyboard.JustDown(this.keys.R) || Phaser.Input.Keyboard.JustDown(this.keys.ENTER)) {
+        this.restartMission();
+      } else if (Phaser.Input.Keyboard.JustDown(this.keys.ESC)) {
+        window.dispatchEvent(new CustomEvent('want:return-to-title'));
+      }
+      return;
+    }
 
     if (Phaser.Input.Keyboard.JustDown(this.keys.ESC)) {
       this.setPaused(!this.paused);
@@ -326,7 +340,7 @@ export class CombatScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.keys.SPACE) && this.player.canDodge(this.simNow)) {
       audio.unlock();
       this.player.startDodge(this.simNow);
-      audio.playCue('ui-confirm');
+      audio.playCue('dodge');
     }
 
     // R active snap-reload
@@ -334,11 +348,11 @@ export class CombatScene extends Phaser.Scene {
       audio.unlock();
       const res = this.player.triggerReload(this.simNow);
       if (res === 'snap') {
-        audio.playCue('resolve');
+        audio.playCue('counter-ready');
         this.fx.callout(this.player.x, this.player.y - 30, 'SNAP RELOAD!', '#fde047', true);
         this.fx.sparks(this.player.x, this.player.y, 0xfde047, 8, 26);
       } else if (res === 'started') {
-        audio.playCue('metal-drop');
+        audio.playCue('ui-confirm');
       }
     }
 
@@ -382,8 +396,13 @@ export class CombatScene extends Phaser.Scene {
         this.arenaBounds,
         this.difficulty,
       );
+      if (res.startedTelegraph === 'scout') {
+        audio.playCue('scout-windup');
+      } else if (res.startedTelegraph === 'rusher') {
+        audio.playCue('rusher-windup');
+      }
       if (res.slammedCover) {
-        audio.playCue('muffled-blast');
+        audio.playCue('lane-crash');
         this.fx.shake(120, 0.008);
         this.fx.sparks(e.x, e.y, 0xfde047, 10, 34);
         this.fx.callout(e.x, e.y - 34, 'STAGGERED! 1.5x', '#fde047', true);
@@ -465,7 +484,7 @@ export class CombatScene extends Phaser.Scene {
     });
     this.fx.muzzleFlash(this.player.x, this.player.y, shot.vx, shot.vy, shot.isCounter);
     if (shot.isCounter) {
-      audio.playCue('muffled-blast');
+      audio.playCue('counter-impact');
       this.fx.shake(140, 0.009);
       this.fx.callout(this.player.x, this.player.y - 32, 'COUNTER RAIL!', '#fde047', true);
     } else {
@@ -530,9 +549,11 @@ export class CombatScene extends Phaser.Scene {
             e.attackId = null;
             this.kills++;
             if (b.isCounter) this.counterKills++;
-            audio.playCue('metal-drop');
+            audio.playCue('machine-disabled');
             this.fx.sparks(e.x, e.y, 0xfde047, 12, 38);
             this.fx.shake(90, 0.005);
+          } else {
+            audio.playCue('machine-hit');
           }
           if (!b.piercing) break;
         }
@@ -589,7 +610,7 @@ export class CombatScene extends Phaser.Scene {
     this.player.clearCounter();
     this.hitFlashEndTime = effNow + HIT_FLASH_MS;
     this.hitTextEndTime = effNow + HIT_TEXT_MS;
-    audio.playCue('muffled-blast');
+    audio.playCue('k-hit');
     this.fx.shake(160, 0.011);
     this.fx.sparks(this.player.x, this.player.y, 0xef4444, 10, 32);
     if (res.killed) this.defeated = true;
@@ -599,7 +620,7 @@ export class CombatScene extends Phaser.Scene {
     if (this.player.counterActive) return;
     this.awardedCounterAttackIds.add(attackId);
     this.player.openCounter(effNow, attackId);
-    audio.playCue('resolve');
+    audio.playCue('counter-ready');
     this.fx.reflexFlash(this.player.x, this.player.y);
     this.counterText.setText('REFLEX COUNTER — CLICK TO FIRE RAIL').setVisible(true);
   }
@@ -608,6 +629,7 @@ export class CombatScene extends Phaser.Scene {
     this.defeated = true;
     this.paused = true;
     saveRun(this.state);
+    audio.playCue('failure');
     this.pauseOverlay.setVisible(true);
     this.gameOverPanel.setVisible(true);
     this.counterText.setVisible(false);
@@ -615,6 +637,7 @@ export class CombatScene extends Phaser.Scene {
   }
 
   private restartMission() {
+    audio.playCue('ui-confirm');
     this.defeated = false;
     this.paused = false;
     this.simNow = 0;

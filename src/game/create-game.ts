@@ -4,17 +4,25 @@ import { WorldScene } from './scenes/WorldScene';
 import { DialogueScene } from './scenes/DialogueScene';
 import { CombatScene } from './scenes/CombatScene';
 import { RescueScene } from './scenes/RescueScene';
+import { HordeScene, type HordeConfig } from './scenes/HordeScene';
 import { MAX_HEALTH } from './rules';
 import type { Difficulty } from './rules';
 import type { RunState } from './state';
+import type { StoryProgressSnapshot } from './story-state';
 
-type SceneKey = 'preview' | 'world' | 'combat' | 'rescue';
+export type SceneKey = 'preview' | 'world' | 'combat' | 'rescue' | 'horde';
+
+export interface CreateGameOptions {
+  storySnapshot?: StoryProgressSnapshot | null;
+  hordeConfig?: HordeConfig;
+}
 
 const SCENES: Record<SceneKey, new () => Phaser.Scene> = {
   preview: PreviewScene,
   world: WorldScene,
   combat: CombatScene,
   rescue: RescueScene,
+  horde: HordeScene,
 };
 
 // Development route: `?world` starts the Phase 1 campus slice instead of the
@@ -26,14 +34,14 @@ export function createGame(
   sceneKey: SceneKey = startWorld ? 'world' : 'preview',
   difficulty: Difficulty = 'story',
   initialState?: RunState,
+  options?: CreateGameOptions,
 ): Phaser.Game {
   const Scene = SCENES[sceneKey];
   // Phaser auto-starts only the first scene given, so ordering controls which
-  // scene enters first. All campaign scenes are registered so they can be
-  // launched by key from world/combat/rescue code. The chosen scene also
-  // appears in the shared list, so dedupe: Phaser throws on duplicate keys.
+  // scene enters first. All campaign & mode scenes are registered so they can be
+  // launched by key. Dedupe because Phaser throws on duplicate keys.
   const scenes = [...new Set<new () => Phaser.Scene>([
-    Scene, WorldScene, DialogueScene, CombatScene, RescueScene, PreviewScene,
+    Scene, WorldScene, DialogueScene, CombatScene, RescueScene, HordeScene, PreviewScene,
   ])];
   return new Phaser.Game({
     type: Phaser.AUTO,
@@ -48,6 +56,9 @@ export function createGame(
     callbacks: {
       preBoot: (game) => {
         game.registry.set('difficulty', difficulty);
+        game.registry.set('storySnapshot', options?.storySnapshot ?? null);
+        game.registry.set('hordeConfig', options?.hordeConfig ?? null);
+        game.registry.set('initialRunState', initialState ?? null);
         if (initialState) {
           // Resume the saved campaign state. Health is never reset to fresh on reload.
           game.registry.set('health', initialState.health);
@@ -64,6 +75,5 @@ export function createGame(
         }
       },
     },
-    // Phase 4 will enable audio after a user gesture; this preview contains no sound files.
   });
 }

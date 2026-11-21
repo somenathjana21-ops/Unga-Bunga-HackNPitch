@@ -28,6 +28,9 @@ let musicValueEl: HTMLElement | null = null;
 let effectsValueEl: HTMLElement | null = null;
 
 let current: Preferences = { ...DEFAULT_PREFERENCES };
+let activeOnChange: ((preferences: Preferences) => void) | null = null;
+let activeOnClose: (() => void) | null = null;
+let listenersWired = false;
 
 function ensureDialog(): HTMLDialogElement {
   if (dialog) return dialog;
@@ -39,15 +42,15 @@ function ensureDialog(): HTMLDialogElement {
       <h2 id="settings-title">Settings &amp; accessibility</h2>
       <p class="settings-note">Sound starts after your first interaction. Volumes persist on this device.</p>
       <div class="settings-row">
-        <label>Master volume <span id="settings-master-value">70%</span></label>
+        <label for="settings-master">Master volume <span id="settings-master-value" class="num">70%</span></label>
         <input type="range" min="0" max="100" value="70" id="settings-master" />
       </div>
       <div class="settings-row">
-        <label>Music <span id="settings-music-value">50%</span></label>
+        <label for="settings-music">Music &amp; ambience <span id="settings-music-value" class="num">50%</span></label>
         <input type="range" min="0" max="100" value="50" id="settings-music" />
       </div>
       <div class="settings-row">
-        <label>Effects <span id="settings-effects-value">70%</span></label>
+        <label for="settings-effects">Effects <span id="settings-effects-value" class="num">70%</span></label>
         <input type="range" min="0" max="100" value="70" id="settings-effects" />
       </div>
       <div class="settings-row">
@@ -115,9 +118,15 @@ function readForm(): Preferences {
   };
 }
 
-function wireEvents(onChange: (preferences: Preferences) => void): void {
-  if (!masterInput || !musicInput || !effectsInput || !muteInput || !reducedMotionInput) return;
-  const update = () => applyPreferences(readForm(), true);
+function wireEventsOnce(el: HTMLDialogElement): void {
+  if (listenersWired || !masterInput || !musicInput || !effectsInput || !muteInput || !reducedMotionInput) return;
+  listenersWired = true;
+
+  const update = () => {
+    const next = readForm();
+    applyPreferences(next, true);
+    activeOnChange?.(next);
+  };
   masterInput.addEventListener('input', () => {
     if (masterValueEl) masterValueEl.textContent = percent(Number(masterInput!.value) / 100);
     update();
@@ -132,12 +141,21 @@ function wireEvents(onChange: (preferences: Preferences) => void): void {
   });
   muteInput.addEventListener('change', update);
   reducedMotionInput.addEventListener('change', update);
-  onChange(readForm());
+
+  const closeBtn = document.getElementById('settings-close') as HTMLButtonElement | null;
+  closeBtn?.addEventListener('click', () => {
+    el.close();
+  });
+  el.addEventListener('close', () => {
+    activeOnClose?.();
+  });
 }
 
 export function openSettingsPanel(options: SettingsPanelOptions): void {
   const el = ensureDialog();
   refs();
+  activeOnChange = options.onChange;
+  activeOnClose = options.onClose;
 
   const stored = loadPreferences();
   let prefs: Preferences;
@@ -145,27 +163,13 @@ export function openSettingsPanel(options: SettingsPanelOptions): void {
     prefs = stored.preferences;
   } else {
     prefs = { ...DEFAULT_PREFERENCES };
-    // Reduce motion follows the OS by default; mirror the current system state.
     prefs.reducedMotion = systemReducedMotion() ? 'reduce' : 'auto';
     savePreferences(prefs);
   }
   current = prefs;
   applyPreferences(prefs, false);
-
-  const closeBtn = document.getElementById('settings-close') as HTMLButtonElement | null;
-  closeBtn?.addEventListener('click', () => {
-    el.close();
-    options.onClose();
-  });
-
-  const onCancel = () => {
-    options.onClose();
-  };
-  el.addEventListener('cancel', onCancel, { once: true });
-
-  wireEvents(options.onChange);
-
-  el.showModal();
+  wireEventsOnce(el);
+  if (!el.open) el.showModal();
 }
 
 export function destroySettingsPanel(): void {

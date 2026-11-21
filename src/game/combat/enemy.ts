@@ -31,6 +31,7 @@ export const EXPOSED_DAMAGE_MULT = 1.5;
 export interface EnemyUpdateResult {
   bullets: { x: number; y: number; vx: number; vy: number; speed: number; damage: number; attackId: string | null }[];
   slammedCover: boolean;
+  startedTelegraph?: 'scout' | 'rusher';
 }
 
 export function makeEnemy(kind: EnemyKind, x: number, y: number, difficulty: Difficulty, now: number): CombatEnemy {
@@ -168,6 +169,7 @@ export function updateEnemy(
         e.dirLocked = false;
         aimAt(e, player.x, player.y);
         e.nextDecisionTime = now + BLOCKED_UNTIL_MS;
+        result.startedTelegraph = 'scout';
       }
     } else {
       // Rushers stalk relentlessly toward K, angling around cover to open a charge lane.
@@ -186,6 +188,7 @@ export function updateEnemy(
         e.dirLocked = false;
         aimAt(e, player.x, player.y);
         e.nextDecisionTime = now + BLOCKED_UNTIL_MS;
+        result.startedTelegraph = 'rusher';
       }
     }
     return result;

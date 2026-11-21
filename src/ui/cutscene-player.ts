@@ -9,8 +9,15 @@
 import { cutscenes } from '../content/cutscenes/ledger';
 import type { Cutscene, CutsceneShot } from '../content/cutscenes/ledger';
 import { playCutscene, panTransform, type CutsceneController } from '../game/cutscene/playback';
-import { audio, type CueName } from '../services/audio';
+import { audio, type CueName, type MusicTrack } from '../services/audio';
 import manifestData from '../../assets/runtime-manifest.json';
+
+function musicForCutscene(id: string): MusicTrack {
+  const key = id.toLowerCase();
+  if (key === 'c01') return 'campus';
+  if (key === 'c04') return 'ending';
+  return 'future';
+}
 
 let overlay: HTMLElement | null = null;
 let imageEl: HTMLImageElement | null = null;
@@ -282,8 +289,9 @@ function show(cutscene: Cutscene, reducedMotion: boolean, onComplete: (cutsceneI
     }
   };
 
-  const advanceAndRender = () => {
+  const advanceAndRender = (manual = false) => {
     if (!controller || controller.completed) return;
+    if (manual) audio.playCue('ui-confirm');
     stopAutoAdvance();
     controller.advance();
     if (controller && !controller.completed) {
@@ -293,12 +301,13 @@ function show(cutscene: Cutscene, reducedMotion: boolean, onComplete: (cutsceneI
 
   const skipNow = () => {
     if (!controller || controller.completed) return;
+    audio.playCue('ui-confirm');
     stopAutoAdvance();
     controller.skip();
   };
 
   if (skipEl) skipEl.onclick = skipNow;
-  if (nextEl) nextEl.onclick = advanceAndRender;
+  if (nextEl) nextEl.onclick = () => advanceAndRender(true);
 
   activeKeyHandler = (event: KeyboardEvent) => {
     if (!controller) return;
@@ -347,6 +356,7 @@ export function playCutsceneOverlay(options: {
     return;
   }
   audio.unlock();
+  audio.setMusic(musicForCutscene(cutscene.id));
   show(cutscene, options.reducedMotion, options.onComplete);
 }
 

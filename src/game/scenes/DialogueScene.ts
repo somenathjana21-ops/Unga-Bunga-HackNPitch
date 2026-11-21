@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { dialogueSequences } from '../../content/dialogue/sequences';
 import type { DialogueLine, DialogueChoice } from '../../content/dialogue/types';
+import { audio } from '../../services/audio';
 
 interface DialogueSceneData {
   sequenceId: string;
@@ -65,9 +66,16 @@ export class DialogueScene extends Phaser.Scene {
     const boxHeight = 160;
     const boxY = h - boxHeight;
 
-    // Semi-transparent dialogue box
-    this.add.rectangle(w / 2, boxY + boxHeight / 2, w, boxHeight, 0x0d1117, 0.94)
-      .setStrokeStyle(2, 0x3b4654);
+    // Semi-transparent dialogue box (clickable to advance when not in choice mode)
+    const boxBg = this.add.rectangle(w / 2, boxY + boxHeight / 2, w, boxHeight, 0x0d1117, 0.94)
+      .setStrokeStyle(2, 0x3b4654)
+      .setInteractive({ useHandCursor: true });
+    boxBg.on('pointerdown', () => {
+      if (!this.choiceMode) {
+        audio.unlock();
+        this.advance();
+      }
+    });
 
     // Subtle portrait frame on the left (only visible when a line has a portrait)
     this.portraitFrame = this.add.rectangle(74, boxY + 80, 112, 134, 0x151d28, 0.96)
@@ -92,7 +100,7 @@ export class DialogueScene extends Phaser.Scene {
     });
 
     // Hint text
-    this.add.text(w - 24, boxY + boxHeight - 22, 'E / Space — Continue    Esc — Skip', {
+    this.add.text(w - 24, boxY + boxHeight - 22, 'Click / E / Space — Continue    Esc — Skip', {
       fontFamily: 'Segoe UI, Arial, sans-serif',
       fontSize: '11px',
       color: '#8892a0',
@@ -102,22 +110,43 @@ export class DialogueScene extends Phaser.Scene {
     this.choiceContainer = this.add.container(0, 0).setVisible(false);
 
     // Input
-    this.input.keyboard!.on('keydown-E', () => this.advance());
-    this.input.keyboard!.on('keydown-SPACE', () => this.advance());
-    this.input.keyboard!.on('keydown-ESC', () => this.skip());
-
-    // Choice navigation
-    this.input.keyboard!.on('keydown-UP', () => {
+    const onAdvance = () => {
+      audio.unlock();
+      this.advance();
+    };
+    const onSkip = () => {
+      audio.unlock();
+      this.skip();
+    };
+    const onUp = () => {
       if (this.choiceMode && this.choiceTexts.length > 0) {
         this.choiceIndex = (this.choiceIndex - 1 + this.choiceTexts.length) % this.choiceTexts.length;
+        audio.playCue('ui-confirm');
         this.updateChoiceHighlight();
       }
-    });
-    this.input.keyboard!.on('keydown-DOWN', () => {
+    };
+    const onDown = () => {
       if (this.choiceMode && this.choiceTexts.length > 0) {
         this.choiceIndex = (this.choiceIndex + 1) % this.choiceTexts.length;
+        audio.playCue('ui-confirm');
         this.updateChoiceHighlight();
       }
+    };
+
+    this.input.keyboard!.on('keydown-E', onAdvance);
+    this.input.keyboard!.on('keydown-SPACE', onAdvance);
+    this.input.keyboard!.on('keydown-ENTER', onAdvance);
+    this.input.keyboard!.on('keydown-ESC', onSkip);
+    this.input.keyboard!.on('keydown-UP', onUp);
+    this.input.keyboard!.on('keydown-DOWN', onDown);
+
+    this.events.once('shutdown', () => {
+      this.input.keyboard?.off('keydown-E', onAdvance);
+      this.input.keyboard?.off('keydown-SPACE', onAdvance);
+      this.input.keyboard?.off('keydown-ENTER', onAdvance);
+      this.input.keyboard?.off('keydown-ESC', onSkip);
+      this.input.keyboard?.off('keydown-UP', onUp);
+      this.input.keyboard?.off('keydown-DOWN', onDown);
     });
 
     // Show first line
@@ -259,6 +288,7 @@ export class DialogueScene extends Phaser.Scene {
   }
 
   private advance() {
+    audio.playCue('ui-confirm');
     if (this.choiceMode) {
       // Select the highlighted choice
       const line = this.lines[this.currentLine];
@@ -283,6 +313,7 @@ export class DialogueScene extends Phaser.Scene {
   }
 
   private skip() {
+    audio.playCue('ui-confirm');
     this.finish();
   }
 
@@ -291,10 +322,5 @@ export class DialogueScene extends Phaser.Scene {
     this.finished = true;
     this.onComplete(this.sequenceId, this.completionFlag, this.selectedChoiceFlag);
     this.scene.stop();
-  }
-
-  shutdown() {
-    this.input.keyboard?.removeAllListeners();
-    this.input.keyboard?.removeAllKeys(true);
   }
 }

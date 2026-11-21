@@ -110,7 +110,6 @@ export class RescueScene extends Phaser.Scene {
   private pauseTitle!: Phaser.GameObjects.Text;
   private pauseHint!: Phaser.GameObjects.Text;
   private gameOverPanel!: Phaser.GameObjects.Container;
-  private endingPanel!: Phaser.GameObjects.Container;
   private teachingCard!: Phaser.GameObjects.Container;
   private endingBackground?: Phaser.GameObjects.Image;
 
@@ -148,8 +147,10 @@ export class RescueScene extends Phaser.Scene {
   constructor() { super('rescue'); }
 
   init(data: { state?: RunState; difficulty?: Difficulty } = {}): void {
-    this.difficulty = data.difficulty ?? 'story';
-    this.state = data.state ?? newRun(this.difficulty);
+    const regState = this.registry.get('initialRunState') as RunState | null;
+    const regDifficulty = (this.registry.get('difficulty') as Difficulty) ?? 'story';
+    this.difficulty = data.difficulty ?? data.state?.difficulty ?? regState?.difficulty ?? regDifficulty;
+    this.state = data.state ?? regState ?? newRun(this.difficulty);
     this.defeated = false;
     this.ended = false;
     this.paused = false;
@@ -279,7 +280,7 @@ export class RescueScene extends Phaser.Scene {
 
     // Input
     this.keys = this.input.keyboard!.addKeys(
-      'W,A,S,D,UP,LEFT,DOWN,RIGHT,SPACE,ESC,E,R',
+      'W,A,S,D,UP,LEFT,DOWN,RIGHT,SPACE,ESC,E,R,ENTER',
     ) as Record<string, Phaser.Input.Keyboard.Key>;
     this.input.keyboard!.addCapture(['UP', 'DOWN', 'LEFT', 'RIGHT', 'SPACE', 'ESC', 'E', 'R']);
 
@@ -292,6 +293,7 @@ export class RescueScene extends Phaser.Scene {
 
     document.body.dataset.scene = 'rescue';
     document.body.dataset.beat = this.beatId();
+    audio.setSceneAudio('rescue', 'ruined-city');
 
     // Service lane arena backdrop
     if (this.textures.exists('bg-rescue')) {
@@ -495,63 +497,35 @@ export class RescueScene extends Phaser.Scene {
     this.teachingCard.setSize(480, 266);
     this.teachingCard.setInteractive({
       useHandCursor: true,
-      hitArea: new Phaser.Geom.Rectangle(-240, -133, 480, 266),
+      hitArea: new Phaser.Geom.Rectangle(0, 0, 480, 266),
       hitAreaCallback: Phaser.Geom.Rectangle.Contains,
     });
     this.teachingCard.on('pointerdown', () => this.dismissTeaching());
 
     // Game Over overlay
     this.gameOverPanel = this.add.container(width / 2, height / 2).setDepth(130).setVisible(false);
-    const goBg = this.add.rectangle(0, 0, 360, 180, 0x111827, 0.96).setStrokeStyle(2, 0xef4444);
-    const goTitle = this.add.text(0, -60, 'GAME OVER', {
+    const goBg = this.add.rectangle(0, 0, 360, 196, 0x111827, 0.96).setStrokeStyle(2, 0xef4444);
+    const goTitle = this.add.text(0, -68, 'GAME OVER', {
       fontSize: '24px', fontFamily: 'monospace', color: '#ef4444',
     }).setOrigin(0.5);
-    const goHint = this.add.text(0, -20, 'K couldn\'t make it through. The attempt failed.', {
-      fontSize: '14px', fontFamily: 'monospace', color: '#e2e8f0',
+    const goHint = this.add.text(0, -28, 'K couldn\'t make it through. The attempt failed.', {
+      fontSize: '13px', fontFamily: 'monospace', color: '#e2e8f0', align: 'center',
     }).setOrigin(0.5).setWordWrapWidth(320);
-    const restartBtn = this.add.rectangle(0, 24, 220, 36, 0x4cc9f0)
+    const restartBtn = this.add.rectangle(0, 18, 228, 36, 0xe3b16b)
       .setInteractive({ useHandCursor: true }).setDepth(131);
-    const restartBtnText = this.add.text(0, 24, 'Restart rescue mission', {
-      fontSize: '15px', fontFamily: 'monospace', color: '#0f172a',
+    const restartBtnText = this.add.text(0, 18, 'Restart rescue [R / Enter]', {
+      fontSize: '13px', fontFamily: 'monospace', fontStyle: 'bold', color: '#0f172a',
     }).setOrigin(0.5).setDepth(132);
-    const returnBtn = this.add.rectangle(0, 72, 220, 36, 0x4b5563)
+    const returnBtn = this.add.rectangle(0, 66, 228, 36, 0x334155)
       .setInteractive({ useHandCursor: true }).setDepth(131);
-    const returnBtnText = this.add.text(0, 72, 'Return to title', {
-      fontSize: '15px', fontFamily: 'monospace', color: '#ffffff',
+    const returnBtnText = this.add.text(0, 66, 'Return to title [Esc]', {
+      fontSize: '13px', fontFamily: 'monospace', color: '#ffffff',
     }).setOrigin(0.5).setDepth(132);
     restartBtn.on('pointerdown', () => this.restartMission());
     returnBtn.on('pointerdown', () => this.returnToTitle());
     this.gameOverPanel.add([goBg, goTitle, goHint, restartBtn, restartBtnText, returnBtn, returnBtnText]);
 
-    // Ending panel
-    this.endingPanel = this.add.container(width / 2, height / 2).setDepth(130).setVisible(false);
-    const endBg = this.add.rectangle(0, 0, 520, 310, 0x111827, 0.96).setStrokeStyle(2, 0x22d3ee);
-    const endTitle = this.add.text(0, -120, 'WANT - Chapter One: The Wrong Person', {
-      fontSize: '18px', fontFamily: 'monospace', color: '#22d3ee',
-    }).setOrigin(0.5);
-    const endLine = this.add.text(0, -85, '“You were not the person they came for.\nYou were the person who stayed.”', {
-      fontSize: '15px', fontFamily: 'monospace', color: '#fde047', align: 'center',
-    }).setOrigin(0.5);
-    const endQuotes = this.add.text(
-      0, -15,
-      'Lina: “I thought nobody heard me.”  K: “I almost kept walking.”\nLina: “But you didn’t.”\n\nMai: “You’re who went back for her. I’m sorry for what I said.”\nIsshin: “Today you gave someone a way home. We can start there.”',
-      { fontSize: '12px', fontFamily: 'monospace', color: '#cbd5e1', align: 'center' },
-    ).setOrigin(0.5).setLineSpacing(3);
-    const endStatus = this.add.text(0, 70, 'Lina safely in camp. girl-rescued · Health fully restored.', {
-      fontSize: '13px', fontFamily: 'monospace', color: '#86efac', align: 'center',
-    }).setOrigin(0.5);
-    const endFinish = this.add.text(0, 115, '[ Finish chapter · Return to title ]', {
-      fontSize: '14px', fontFamily: 'monospace', color: '#38bdf8',
-    }).setOrigin(0.5);
-    this.endingPanel.add([endBg, endTitle, endLine, endQuotes, endStatus, endFinish]);
-    this.endingPanel.setSize(520, 310);
-    this.endingPanel.on('pointerdown', () => this.returnToTitle());
-    this.endingPanel.setInteractive({
-      useHandCursor: true,
-      hitArea: new Phaser.Geom.Rectangle(-260, -155, 520, 310),
-      hitAreaCallback: Phaser.Geom.Rectangle.Contains,
-    });
-
+    // Chapter One Ending renders via the animated DOM overlay (want:chapter-ending).
     this.endingBackground = this.add.image(width / 2, height / 2, 'bg-ending').setOrigin(0.5)
       .setDisplaySize(width, height).setDepth(125).setVisible(false);
 
@@ -602,7 +576,23 @@ export class RescueScene extends Phaser.Scene {
   // ---------- main loop ----------
 
   update(_time: number, rawDt: number) {
-    if (this.defeated || this.ended || isCutsceneActive()) return;
+    if (isCutsceneActive()) return;
+
+    if (this.defeated) {
+      if (Phaser.Input.Keyboard.JustDown(this.keys.R) || Phaser.Input.Keyboard.JustDown(this.keys.ENTER)) {
+        this.restartMission();
+      } else if (Phaser.Input.Keyboard.JustDown(this.keys.ESC)) {
+        this.returnToTitle();
+      }
+      return;
+    }
+
+    if (this.ended) {
+      if (Phaser.Input.Keyboard.JustDown(this.keys.ESC) || Phaser.Input.Keyboard.JustDown(this.keys.ENTER)) {
+        this.returnToTitle();
+      }
+      return;
+    }
 
     // Update real-time toast expiry even if paused
     if (this.toastText.visible && performance.now() >= this.toastUntil) {
@@ -652,7 +642,7 @@ export class RescueScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.keys.SPACE) && this.player.canDodge(this.simNow)) {
       audio.unlock();
       this.player.startDodge(this.simNow);
-      audio.playCue('ui-confirm');
+      audio.playCue('dodge');
     }
 
     // R active snap-reload
@@ -660,11 +650,11 @@ export class RescueScene extends Phaser.Scene {
       audio.unlock();
       const res = this.player.triggerReload(this.simNow);
       if (res === 'snap') {
-        audio.playCue('resolve');
+        audio.playCue('counter-ready');
         this.fx.callout(this.player.x, this.player.y - 30, 'SNAP RELOAD!', '#fde047', true);
         this.fx.sparks(this.player.x, this.player.y, 0xfde047, 8, 26);
       } else if (res === 'started') {
-        audio.playCue('metal-drop');
+        audio.playCue('ui-confirm');
       }
     }
 
@@ -709,8 +699,13 @@ export class RescueScene extends Phaser.Scene {
         this.arenaBounds,
         this.difficulty,
       );
+      if (res.startedTelegraph === 'scout') {
+        audio.playCue('scout-windup');
+      } else if (res.startedTelegraph === 'rusher') {
+        audio.playCue('rusher-windup');
+      }
       if (res.slammedCover) {
-        audio.playCue('muffled-blast');
+        audio.playCue('lane-crash');
         this.fx.shake(120, 0.008);
         this.fx.sparks(e.x, e.y, 0xfde047, 10, 34);
         this.fx.callout(e.x, e.y - 34, 'STAGGERED! 1.5x', '#fde047', true);
@@ -833,7 +828,7 @@ export class RescueScene extends Phaser.Scene {
     });
     this.fx.muzzleFlash(this.player.x, this.player.y, shot.vx, shot.vy, shot.isCounter);
     if (shot.isCounter) {
-      audio.playCue('muffled-blast');
+      audio.playCue('counter-impact');
       this.fx.shake(140, 0.009);
       this.fx.callout(this.player.x, this.player.y - 32, 'COUNTER RAIL!', '#fde047', true);
     } else {
@@ -888,7 +883,7 @@ export class RescueScene extends Phaser.Scene {
     if (effNow - this.switchHold.startTime >= SWITCH_HOLD_MS) {
       this.gateOpen = true;
       this.switchHold = { active: false, startTime: 0 };
-      audio.playCue('resolve');
+      audio.playCue('gate-open');
       this.fx.sparks(SWITCH_POS.x, SWITCH_POS.y, 0x4ade80, 14, 42);
       this.fx.callout(SWITCH_POS.x, SWITCH_POS.y - 36, 'GATE OPEN!', '#4ade80', true);
       this.showToast('Gate unlocked! Clear any remaining machines so Lina can cross to Mai.', 3000);
@@ -1015,9 +1010,11 @@ export class RescueScene extends Phaser.Scene {
           if (e.health <= 0) {
             e.phase = 'dead';
             e.attackId = null;
-            audio.playCue('metal-drop');
+            audio.playCue('machine-disabled');
             this.fx.sparks(e.x, e.y, 0xfde047, 12, 36);
             this.fx.shake(80, 0.005);
+          } else {
+            audio.playCue('machine-hit');
           }
           if (!b.piercing) break;
         }
@@ -1077,7 +1074,7 @@ export class RescueScene extends Phaser.Scene {
     }
     this.hitFlashEndTime = effNow + HIT_FLASH_MS;
     this.hitTextEndTime = effNow + HIT_TEXT_MS;
-    audio.playCue('muffled-blast');
+    audio.playCue('k-hit');
     this.fx.shake(160, 0.011);
     this.fx.sparks(this.player.x, this.player.y, 0xef4444, 10, 32);
     if (res.killed) this.defeated = true;
@@ -1091,7 +1088,7 @@ export class RescueScene extends Phaser.Scene {
       this.teachingPaused = true;
       this.teachingOpenedAt = performance.now();
       this.teachingCard.setVisible(true);
-      audio.playCue('resolve');
+      audio.playCue('counter-ready');
       return;
     }
     this.awardCounter(attackId, effNow);
@@ -1108,7 +1105,7 @@ export class RescueScene extends Phaser.Scene {
 
   private awardCounter(attackId: string | null, effNow: number) {
     this.player.openCounter(effNow, attackId ?? null);
-    audio.playCue('resolve');
+    audio.playCue('counter-ready');
     this.fx.reflexFlash(this.player.x, this.player.y);
     this.counterText.setText('REFLEX COUNTER — CLICK TO FIRE RAIL').setVisible(true);
   }
@@ -1117,6 +1114,7 @@ export class RescueScene extends Phaser.Scene {
     this.defeated = true;
     this.paused = true;
     saveRun(this.state);
+    audio.playCue('failure');
     this.pauseOverlay.setVisible(true);
     this.gameOverPanel.setVisible(true);
     this.counterText.setVisible(false);
@@ -1124,6 +1122,8 @@ export class RescueScene extends Phaser.Scene {
   }
 
   private restartMission() {
+    audio.playCue('ui-confirm');
+    audio.setSceneAudio('rescue', 'ruined-city');
     this.defeated = false;
     this.paused = false;
     this.ended = false;
@@ -1194,7 +1194,6 @@ export class RescueScene extends Phaser.Scene {
 
   private returnToTitle() {
     window.dispatchEvent(new CustomEvent('want:return-to-title'));
-    this.game.destroy(true);
   }
 
   private showGameOver() {
@@ -1205,9 +1204,17 @@ export class RescueScene extends Phaser.Scene {
   private showEnding() {
     this.ended = true;
     this.paused = true;
-    this.endingPanel.setVisible(true);
-    this.endingBackground?.setVisible(true);
     this.counterText.setVisible(false);
+    this.reflexTint.setVisible(false);
+    this.endingBackground?.setVisible(true);
+    audio.playCue('resolve');
+    // Hand off to the animated, accessible DOM Chapter One Ending screen
+    // (avoids Phaser container hit-area offsets and guarantees full interactivity).
+    window.dispatchEvent(
+      new CustomEvent('want:chapter-ending', {
+        detail: { difficulty: this.difficulty },
+      }),
+    );
   }
 
   private setPaused(p: boolean, clearInputs = false) {
