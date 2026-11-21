@@ -10,6 +10,7 @@ import {
   hordeDurationRules,
   hordeHitsToFall,
   hordeTimeRamp,
+  mulberry32,
   normalizePlayerName,
   pickHordeEnemyKind,
 } from '../src/game/horde/rules';
@@ -393,6 +394,19 @@ describe('Horde maps, expanded arena & randomized per-match cover', () => {
         }
       }
     }
+  });
+
+  it('produces identical cover for duel seats sharing a seed', () => {
+    // Both seats of a seeded duel run this.rng from the same seed, so the
+    // cover layout must match exactly for a fair match.
+    const seatA = generateRandomHordeCover(HORDE_ARENA_WIDTH, HORDE_ARENA_HEIGHT, 'warehouse', mulberry32(360556158));
+    const seatB = generateRandomHordeCover(HORDE_ARENA_WIDTH, HORDE_ARENA_HEIGHT, 'warehouse', mulberry32(360556158));
+    expect(seatB).toEqual(seatA);
+    expect(seatA.length).toBeGreaterThanOrEqual(6);
+
+    // A different seed must diverge so Random map choice stays unpredictable
+    const differentSeed = generateRandomHordeCover(HORDE_ARENA_WIDTH, HORDE_ARENA_HEIGHT, 'warehouse', mulberry32(1));
+    expect(differentSeed).not.toEqual(seatA);
   });
 
   it('stores optional mapId on Horde scores cleanly', () => {

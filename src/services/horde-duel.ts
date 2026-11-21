@@ -387,9 +387,17 @@ export class FallbackHordeDuelBackend implements HordeDuelBackend {
     if (this.degraded) return localCall();
     const res = await supabaseCall();
     if (res.ok) return res;
-    this.degraded = true;
-    console.warn('Supabase duel backend unavailable; degrading to local pass-and-play.', res.error);
-    return localCall();
+    // Only unavailability errors (missing migration, network down, unreachable)
+    // knock the backend out of the session. Business errors (room full, name
+    // taken, already finished, bad token, ...) are returned to the player so
+    // they can act on them instead of being silently shunted into a different
+    // local room.
+    if (res.error.code === 'BACKEND_UNAVAILABLE' || res.error.code === 'UNKNOWN') {
+      this.degraded = true;
+      console.warn('Supabase duel backend unavailable; degrading to local pass-and-play.', res.error);
+      return localCall();
+    }
+    return res;
   }
 
   async create(input: CreateDuelInput): Promise<DuelResponse<DuelSession>> {

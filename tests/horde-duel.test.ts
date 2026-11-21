@@ -268,4 +268,36 @@ describe('duel backend fallback', () => {
     expect(backend.kind).toBe('local');
     expect(backend.label).toBe('Local pass-and-play (duel service unavailable)');
   });
+
+  it('propagates business errors instead of degrading to local', async () => {
+    const roomFull = () =>
+      Promise.resolve({
+        data: null,
+        error: { message: 'ROOM_FULL', details: '', hint: '' },
+      });
+    const client = { rpc: roomFull } as unknown as SupabaseClient;
+    const backend = new FallbackHordeDuelBackend(client, new MemoryStore());
+    expect(backend.kind).toBe('supabase');
+
+    const joined = await backend.join('ABC234', 'Mai');
+    expect(joined.ok).toBe(false);
+    if (!joined.ok) expect(joined.error.code).toBe('ROOM_FULL');
+    expect(backend.kind).toBe('supabase'); // a full room is not an outage
+  });
+
+  it('degrades to local when Supabase is unreachable', async () => {
+    const boom = () => Promise.reject(new Error('Failed to fetch'));
+    const client = { rpc: boom } as unknown as SupabaseClient;
+    const backend = new FallbackHordeDuelBackend(client, new MemoryStore());
+    const created = await backend.create({
+      hostName: 'K',
+      difficulty: 'easy',
+      duration: '1m',
+      matchMode: 'duel',
+      seed: 1,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    expect(backend.kind).toBe('local'); // network failure degrades the session
+  });
 });

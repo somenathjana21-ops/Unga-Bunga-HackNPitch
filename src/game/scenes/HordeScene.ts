@@ -412,8 +412,9 @@ export class HordeScene extends Phaser.Scene {
     const mapDef = hordeMaps[this.activeMapId];
     const isDoom = this.config.difficulty === 'doom';
 
-    // Fresh randomized tactical cover every single match
-    this.cover = generateRandomHordeCover(HORDE_ARENA_WIDTH, HORDE_ARENA_HEIGHT, this.activeMapId);
+    // Fresh randomized tactical cover every single match. Pass the seeded run
+    // RNG so both duel seats sharing a seed get an identical cover layout.
+    this.cover = generateRandomHordeCover(HORDE_ARENA_WIDTH, HORDE_ARENA_HEIGHT, this.activeMapId, this.rng);
 
     // Expose active map & cover layout for testing/debugging
     document.body.dataset.hordeMap = this.activeMapId;
