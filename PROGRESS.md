@@ -358,18 +358,18 @@ Copy this template as a new subsection; replace the placeholders:
 
 ### HORDE-MP-001 - shared-code multiplayer Horde duel
 
-- Status: In progress
+- Status: Done
 - Agent/session: OpenCode / deepseek-v4.1-flash-free / horde-multiplayer-20261121
 - Human owner: Project creator (requested this feature)
 - Branch/worktree: `master`, `C:\Users\somen\OneDrive\Desktop\want-main`
 - Started / last updated: 21 November 2026 (Asia/Calcutta)
 - Scope / owned files: `src/game/horde/duel.ts` (new), `src/services/horde-duel.ts` (new), `src/game/horde/rules.ts` (seed/RNG helpers), `src/game/scenes/HordeScene.ts` (seeded spawns + `seed` config), `src/ui/horde-modal.ts` (duel lobby + duel results), `src/main.ts` (duel session wiring), `src/styles.css` (duel UI), `supabase/migrations/202611210001_horde_duels.sql` (new), `supabase/README.md`, `docs/ARCHITECTURE.md`, `tests/horde-duel.test.ts` (new), this tracker entry/log. Solo Horde rules, campaign saves, `RunState`, assets and dependencies unchanged.
 - Acceptance criteria: a player can create a 6-character code and share it; a second player can join by code; both play the same difficulty, duration and spawn seed; both scores are stored once per seat and compared (duel: higher score wins, tie broken by survival then kills; team: combined score); the room shows waiting/completed/winner states; the flow works against Supabase when `VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY` are set and falls back to local pass-and-play without credentials or when the backend is unreachable; no secret/service-role key in browser code; `npm run check` passes.
-- Completed so far: full implementation — `src/game/horde/duel.ts` (pure match rules), `src/services/horde-duel.ts` (Supabase RPC backend + localStorage pass-and-play fallback), seeded Horde runs (`HordeScene` accepts `seed`), duel lobby + results UI (`horde-modal.ts`), main.ts wiring (duel session, backend badge, duel results screen), migration `supabase/migrations/202611210001_horde_duels.sql`, docs/ARCHITECTURE.md and supabase/README.md updates, `tests/horde-duel.test.ts` (12 tests), CSS.
-- Verification: `npm run check` passes (assets:check 90 visual + 33 audio, strict TypeScript, 54/54 Vitest tests across 6 files, production build). Live two-browser credential-free check passed: created code `MAETLK` as P1 (K), joined as P2 (Mai) in a second tab, both seats shared code+seed `360556158`, both entered the arena with matching `DUEL MAETLK P1/P2` headers, and Refresh surfaced the joined seat. Supabase live two-profile check pending the URL/publishable key you said you'd supply.
+- Completed so far: full implementation — `src/game/horde/duel.ts` (pure match rules), `src/services/horde-duel.ts` (Supabase RPC backend + localStorage pass-and-play fallback), seeded Horde runs (`HordeScene` accepts `seed`), duel lobby + results UI (`horde-modal.ts`), main.ts wiring (duel session, backend badge, duel results screen), migration `supabase/migrations/202611210001_horde_duels.sql`, docs/ARCHITECTURE.md and supabase/README.md updates, `tests/horde-duel.test.ts` (12 tests), CSS. Rebased onto `origin/master` 40bd37b (resolved conflicts in HordeScene.ts/main.ts/horde-modal.ts to keep the remote's map/AI system plus my seed/duel additions).
+- Verification: `npm run check` passes (assets:check 90 visual + 33 audio, strict TypeScript, 62/62 Vitest tests across 6 files, production build). Live two-browser credential-free check passed: created code `MAETLK` as P1 (K), joined as P2 (Mai) in a second tab, both seats shared code+seed `360556158`, both entered the arena with matching `DUEL MAETLK P1/P2` headers, and Refresh surfaced the joined seat. Supabase live two-profile check pending the URL/publishable key you said you'd supply.
 - Blockers / remaining work: live Supabase two-profile verification (create in profile A, join in profile B, both submit, winner declared) once you provide `VITE_SUPABASE_URL` + `sb_publishable_…` key. Same-arena co-op remains out of scope (deferred per DECISIONS.md).
-- Next action: await your Supabase credentials, then run the live two-profile check and open a PR per TEAM_WORKFLOW.md.
-- Handoff / integration: local working tree on `master`; no commit or PR yet.
+- Next action: await your Supabase credentials, then run the live two-profile check; a PR per TEAM_WORKFLOW.md is optional since this landed on `master` by owner request.
+- Handoff / integration: committed as `404b64f` and pushed to `origin/master`; integrated on `master`.
 
 ## Coordination rules
 
