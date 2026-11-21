@@ -168,6 +168,9 @@ class AudioEngine {
 
   private sfxCache = new Map<string, AudioBuffer>();
   private sfxPending = new Map<string, Promise<AudioBuffer | null>>();
+  private streamBlobCache = new Map<string, string>();
+  private streamBlobPending = new Map<string, Promise<string | null>>();
+  private preloadStarted = false;
   private lastCueTime = new Map<CueName, number>();
 
   private settings: AudioSettings = { master: 0.92, music: 0.84, effects: 0.96, muted: false };
@@ -278,14 +281,11 @@ class AudioEngine {
         this.playBuffer(cached, name);
         return;
       }
-      // Kick off fetch + decode and play once ready; meanwhile do not spam double cues.
-      void this.loadBuffer(file).then((buffer) => {
-        if (buffer) {
-          this.playBuffer(buffer, name);
-        } else {
-          this.playSynthFallback(name);
-        }
-      });
+      // Zero-latency guarantee: play crisp synth immediately on this frame so network
+      // fluctuations never delay a gunshot, dodge, or UI click, while warming the WAV
+      // into RAM for every subsequent trigger.
+      this.playSynthFallback(name);
+      void this.loadBuffer(file);
       return;
     }
 
@@ -362,10 +362,29 @@ class AudioEngine {
     const bus = kind === 'music' ? this.musicBus : this.ambienceBus;
     if (!context || !bus || typeof Audio === 'undefined') return;
 
-    const el = new Audio(src);
+    // Prefer already-cached RAM Blob URL so looping & scene switches never hit the network.
+    const cachedBlob = this.streamBlobCache.get(src);
+    const el = new Audio(cachedBlob ?? src);
     el.loop = true;
     el.preload = 'auto';
     el.playbackRate = playbackRate;
+
+    if (!cachedBlob) {
+      // Silently cache into RAM in the background for glitch-free future loops/switches.
+      void this.cacheStreamBlob(src);
+    }
+
+    // Recover gracefully if an uncached stream stalls during a network dip.
+    let recovered = false;
+    el.addEventListener('error', () => {
+      if (recovered) return;
+      recovered = true;
+      const fallbackBlob = this.streamBlobCache.get(src);
+      if (fallbackBlob && el.src !== fallbackBlob) {
+        el.src = fallbackBlob;
+        void el.play().catch(() => { /* ignore */ });
+      }
+    });
 
     let gain: GainNode | null = null;
     try {
@@ -390,6 +409,32 @@ class AudioEngine {
     }
   }
 
+  private cacheStreamBlob(src: string): Promise<string | null> {
+    const cached = this.streamBlobCache.get(src);
+    if (cached) return Promise.resolve(cached);
+    const pending = this.streamBlobPending.get(src);
+    if (pending) return pending;
+    if (typeof fetch === 'undefined' || typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
+      return Promise.resolve(null);
+    }
+
+    const promise = fetch(src)
+      .then((res) => (res.ok ? res.blob() : null))
+      .then((blob) => {
+        if (!blob) return null;
+        const blobUrl = URL.createObjectURL(blob);
+        this.streamBlobCache.set(src, blobUrl);
+        return blobUrl;
+      })
+      .catch(() => null)
+      .finally(() => {
+        this.streamBlobPending.delete(src);
+      });
+
+    this.streamBlobPending.set(src, promise);
+    return promise;
+  }
+
   private fadeOutLayer(layer: StreamLayer | null, durationSec: number): void {
     if (!layer) return;
     const context = this.context;
@@ -402,18 +447,22 @@ class AudioEngine {
         try {
           layer.el.pause();
           layer.el.currentTime = 0;
-          layer.el.src = '';
+          layer.el.removeAttribute('src');
+          layer.el.load();
         } catch { /* ignore teardown errors */ }
       }, Math.round(durationSec * 1000) + 80);
     } else {
       try {
         layer.el.pause();
-        layer.el.src = '';
+        layer.el.removeAttribute('src');
+        layer.el.load();
       } catch { /* ignore */ }
     }
   }
 
   private preloadCommonCues(): void {
+    if (this.preloadStarted || typeof window === 'undefined') return;
+    this.preloadStarted = true;
     const common: CueName[] = [
       'ui-confirm',
       'gunshot',
@@ -423,16 +472,32 @@ class AudioEngine {
       'k-hit',
       'machine-hit',
       'machine-disabled',
+      'scout-windup',
+      'rusher-windup',
+      'failure',
+      'gate-open',
       'step-campus',
       'step-interior',
       'step-debris',
     ];
-    for (const cue of common) {
-      const file = SFX_FILES[cue];
-      if (file && !this.sfxCache.has(file) && !this.sfxPending.has(file)) {
-        void this.loadBuffer(file);
+    // Stagger 2 cues per batch so background decoding never contends with 60fps gameplay.
+    let idx = 0;
+    const pump = () => {
+      if (idx >= common.length) return;
+      const batch = common.slice(idx, idx + 2);
+      idx += 2;
+      const jobs: Promise<unknown>[] = [];
+      for (const cue of batch) {
+        const file = SFX_FILES[cue];
+        if (file && !this.sfxCache.has(file) && !this.sfxPending.has(file)) {
+          jobs.push(this.loadBuffer(file));
+        }
       }
-    }
+      void Promise.all(jobs).finally(() => {
+        window.setTimeout(pump, 160);
+      });
+    };
+    window.setTimeout(pump, 200);
   }
 
   private loadBuffer(url: string): Promise<AudioBuffer | null> {
@@ -448,7 +513,13 @@ class AudioEngine {
         if (decoded) this.sfxCache.set(url, decoded);
         return decoded;
       })
-      .catch(() => null);
+      .catch(() => null)
+      .finally(() => {
+        // Clear failed pending entries so transient network drops can retry later.
+        if (!this.sfxCache.has(url)) {
+          this.sfxPending.delete(url);
+        }
+      });
 
     this.sfxPending.set(url, promise);
     return promise;

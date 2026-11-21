@@ -15,6 +15,16 @@ import {
   evaluateSwitchAttempt,
   switchHoldProgress,
 } from '../src/game/combat/rescue-switch';
+import {
+  LINA_INVULN_MS,
+  LINA_MAX_HEALTH,
+  applyLinaHit,
+  chooseRescueTarget,
+  createLinaDefenseState,
+  isPlayerInterceptingLine,
+  linaDamageForDifficulty,
+} from '../src/game/combat/rescue-defense';
+import { newRun, restartRescue } from '../src/game/state';
 import { combatTuning } from '../src/game/rules';
 import type { CombatBullet, CoverRect } from '../src/game/combat/types';
 
@@ -147,5 +157,110 @@ describe('rescue gate switch rules', () => {
     expect(switchHoldProgress(1000, 1000)).toBe(0);
     expect(switchHoldProgress(1000, 1000 + SWITCH_HOLD_MS / 2)).toBeCloseTo(0.5);
     expect(switchHoldProgress(1000, 1000 + SWITCH_HOLD_MS)).toBe(1);
+  });
+});
+
+describe('rescue Lina defense, active targeting, and K body-blocking', () => {
+  it('applies difficulty-scaled, invulnerability-gated, attackId-deduplicated hits to Lina until defeat', () => {
+    const lina = createLinaDefenseState();
+    expect(lina.health).toBe(LINA_MAX_HEALTH);
+    expect(linaDamageForDifficulty('story')).toBe(25);
+    expect(linaDamageForDifficulty('real')).toBe(34);
+
+    // Hit 1 lands on Story Mode -> 75 HP
+    const h1 = applyLinaHit(lina, 'atk-1', 'story', 1000);
+    expect(h1).toEqual({ hit: true, damage: 25, defeated: false, remainingHealth: 75 });
+
+    // Immediate follow-up inside invulnerability window is ignored
+    const blockedInvuln = applyLinaHit(lina, 'atk-2', 'story', 1000 + LINA_INVULN_MS - 100);
+    expect(blockedInvuln.hit).toBe(false);
+    expect(lina.health).toBe(75);
+
+    // Same attackId after invulnerability is still deduplicated
+    const dupAtk = applyLinaHit(lina, 'atk-1', 'story', 1000 + LINA_INVULN_MS + 100);
+    expect(dupAtk.hit).toBe(false);
+
+    // Hits 2, 3, and 4 defeat Lina cleanly
+    expect(applyLinaHit(lina, 'atk-2', 'story', 2200).remainingHealth).toBe(50);
+    expect(applyLinaHit(lina, 'atk-3', 'story', 3400).remainingHealth).toBe(25);
+    const fatal = applyLinaHit(lina, 'atk-4', 'story', 4600);
+    expect(fatal).toEqual({ hit: true, damage: 25, defeated: true, remainingHealth: 0 });
+  });
+
+  it('detects when K is body-blocking between an enemy and Lina and draws enemy aggro accordingly', () => {
+    // Enemy at (660, 224) aiming left at Lina (462, 224)
+    expect(isPlayerInterceptingLine(660, 224, 462, 224, 540, 226)).toBe(true);
+    // K standing far off to the west behind Lina is NOT intercepting
+    expect(isPlayerInterceptingLine(660, 224, 462, 224, 150, 224)).toBe(false);
+    // K standing far south off the firing lane is NOT intercepting
+    expect(isPlayerInterceptingLine(660, 224, 462, 224, 540, 340)).toBe(false);
+
+    const enemy = { x: 660, y: 224, kind: 'rusher' as const, phase: 'idle' as const };
+    const lina = { x: 462, y: 224 };
+
+    // When K is far away, Rusher actively hunts Lina
+    expect(
+      chooseRescueTarget({
+        enemy,
+        enemyIndex: 0,
+        beatId: 'hold',
+        player: { x: 120, y: 240 },
+        lina,
+        linaSafe: false,
+      }),
+    ).toBe('lina');
+
+    // When K steps directly into the lane in front of Lina, enemy aggros onto K
+    expect(
+      chooseRescueTarget({
+        enemy,
+        enemyIndex: 0,
+        beatId: 'hold',
+        player: { x: 540, y: 224 },
+        lina,
+        linaSafe: false,
+      }),
+    ).toBe('player');
+
+    // Mid-telegraph enemies hold their locked target so lines stay readable
+    expect(
+      chooseRescueTarget({
+        enemy: { ...enemy, phase: 'telegraph' },
+        enemyIndex: 0,
+        beatId: 'hold',
+        player: { x: 540, y: 224 },
+        lina,
+        linaSafe: false,
+        prevTarget: 'lina',
+      }),
+    ).toBe('lina');
+
+    // Once Lina is safe, all enemies focus K
+    expect(
+      chooseRescueTarget({
+        enemy,
+        enemyIndex: 0,
+        beatId: 'extraction',
+        player: { x: 120, y: 240 },
+        lina,
+        linaSafe: true,
+      }),
+    ).toBe('player');
+  });
+
+  it('restarts cleanly from a Lina-down failed rescue without losing Story Mode difficulty or prior milestones', () => {
+    const failedLinaState = {
+      ...newRun('real'),
+      checkpoint: 'rescue-start' as const,
+      health: 50, // K was still alive, Lina fell -> rescueStatus = failed
+      rescueStatus: 'failed' as const,
+      milestones: ['resistance-covered' as const],
+    };
+    const restarted = restartRescue(failedLinaState);
+    expect(restarted.rescueStatus).toBe('active');
+    expect(restarted.health).toBe(100);
+    expect(restarted.difficulty).toBe('real');
+    expect(restarted.milestones).toEqual(['resistance-covered']);
+    expect(restarted.counterUnlocked).toBe(false);
   });
 });

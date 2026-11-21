@@ -1173,15 +1173,15 @@ dialog h2 {
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
-  margin-bottom: 14px;
-  padding-bottom: 12px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
 .horde-heading {
   margin: 0 0 4px;
   font-family: var(--font-pixel);
-  font-size: clamp(18px, 2.2vw, 26px);
+  font-size: clamp(18px, 2.2vw, 24px);
   line-height: 1.2;
   color: var(--accent-amber-hi);
   text-shadow: 0 3px 0 #150721;
@@ -1190,21 +1190,21 @@ dialog h2 {
 .horde-sub {
   margin: 0;
   color: var(--text-secondary);
-  font-size: 13px;
+  font-size: 12.5px;
   max-width: 68ch;
 }
 
 .horde-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.92fr);
-  gap: 20px;
+  grid-template-columns: minmax(0, 1.14fr) minmax(0, 0.9fr);
+  gap: 18px;
   align-items: start;
 }
 
 .horde-config-panel {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 9px;
 }
 
 .horde-top-inputs {
@@ -1217,12 +1217,13 @@ dialog h2 {
 .horde-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .horde-label {
   font-family: var(--font-pixel);
   font-size: 9px;
+  line-height: 1.45;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--accent-amber-hi);
@@ -1327,7 +1328,7 @@ dialog h2 {
   align-items: center;
   justify-content: center;
   width: 100%;
-  height: 44px;
+  height: 36px;
   border-radius: 5px;
   background-size: cover;
   background-position: center;
@@ -1337,7 +1338,7 @@ dialog h2 {
 
 .map-thumb.is-random {
   font-family: var(--font-pixel);
-  font-size: 16px;
+  font-size: 15px;
   color: var(--accent-amber-hi);
   background: linear-gradient(135deg, rgba(64, 30, 96, 0.9), rgba(25, 11, 40, 0.95));
 }
@@ -1346,6 +1347,61 @@ dialog h2 {
   font-size: 11px;
   font-weight: 700;
   line-height: 1.2;
+}
+
+/* Starting Weapon Selector */
+.horde-weapon-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.horde-weapon-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(24, 11, 38, 0.88);
+  color: var(--text-primary);
+  text-align: left;
+  transition: border-color 0.15s ease, background-color 0.15s ease, transform 0.14s ease;
+}
+
+.horde-weapon-btn:hover {
+  border-color: var(--weapon-accent, var(--accent-amber));
+  transform: translateY(-1px);
+}
+
+.horde-weapon-btn.is-active {
+  border-color: var(--weapon-accent, var(--accent-amber-hi));
+  background: rgba(54, 26, 80, 0.94);
+  box-shadow: inset 0 0 0 1px var(--weapon-accent, var(--accent-amber-hi));
+}
+
+.weapon-top {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  width: 100%;
+}
+
+.weapon-slot {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.weapon-top strong {
+  font-size: 11px;
+  color: var(--weapon-accent, var(--text-primary));
+  letter-spacing: 0.02em;
+}
+
+.weapon-meta {
+  font-size: 10px;
+  color: var(--text-secondary);
 }
 
 .horde-diff-grid {
@@ -2203,6 +2259,237 @@ dialog h2 {
 .settings-hint { color: var(--text-muted); font-size: 12px; margin: 0; }
 .settings-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
 
+/* ---------- Rescue Failed / Restart Rescue Screen ---------- */
+.rescue-failed-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 145;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  overflow-y: auto;
+  animation: fade-in 0.28s ease both;
+}
+
+.rescue-failed-backdrop {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.rescue-failed-bg-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(0.45) brightness(0.42) contrast(1.12);
+  transform: scale(1.04);
+}
+
+.rescue-failed-scrim {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 35%, rgba(239, 68, 68, 0.22), rgba(14, 6, 24, 0.92) 72%),
+    linear-gradient(180deg, rgba(16, 7, 26, 0.72), rgba(12, 5, 20, 0.94));
+}
+
+.rescue-failed-scanlines {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.025) 0px,
+    rgba(255, 255, 255, 0.025) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+.rescue-failed-card {
+  position: relative;
+  z-index: 2;
+  width: min(94vw, 680px);
+  background: rgba(29, 13, 44, 0.94);
+  border: 2px solid rgba(248, 113, 113, 0.72);
+  border-radius: 20px;
+  padding: clamp(22px, 3.4vw, 36px);
+  box-shadow:
+    0 24px 64px rgba(0, 0, 0, 0.72),
+    0 0 0 1px rgba(255, 174, 38, 0.16),
+    inset 0 0 36px rgba(239, 68, 68, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  text-align: center;
+  animation: rescue-card-in 0.34s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes rescue-card-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.rescue-failed-badge-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0 auto;
+}
+
+.rescue-failed-alert-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #f87171;
+  box-shadow: 0 0 10px rgba(248, 113, 113, 0.85);
+  animation: rescue-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes rescue-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.84); }
+}
+
+.rescue-failed-kicker {
+  font-family: var(--font-pixel);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: #fca5a5;
+}
+
+.rescue-failed-title {
+  margin: 0;
+  font-family: var(--font-pixel);
+  font-size: clamp(20px, 3.2vw, 30px);
+  line-height: 1.3;
+  letter-spacing: 0.06em;
+  color: #fef2f2;
+  text-shadow: 0 3px 0 #450a0a, 0 0 22px rgba(248, 113, 113, 0.45);
+}
+
+.rescue-failed-summary {
+  margin: 0 auto;
+  max-width: 56ch;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #e9dcf7;
+}
+
+.rescue-failed-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.rescue-metric {
+  background: rgba(16, 7, 26, 0.88);
+  border: 1px solid rgba(186, 160, 232, 0.22);
+  border-radius: 10px;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.rescue-metric.is-critical {
+  border-color: rgba(248, 113, 113, 0.72);
+  background: rgba(69, 10, 10, 0.35);
+}
+
+.rescue-metric-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  color: var(--text-muted);
+}
+
+.rescue-metric-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.rescue-metric.is-critical .rescue-metric-value {
+  color: #fca5a5;
+}
+
+.rescue-failed-tip {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(255, 174, 38, 0.1);
+  border: 1px solid rgba(255, 174, 38, 0.32);
+  color: #fde68a;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.rescue-failed-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.rescue-btn-primary,
+.rescue-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 13px 22px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  transition: transform 0.14s ease, box-shadow 0.16s ease, background-color 0.16s ease;
+}
+
+.rescue-btn-primary {
+  background: linear-gradient(180deg, #ffca3a 0%, #f59e0b 100%);
+  color: #1c0b29;
+  border: 2px solid #fef08a;
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.35);
+}
+
+.rescue-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 26px rgba(245, 158, 11, 0.5);
+}
+
+.rescue-btn-primary kbd {
+  background: rgba(28, 11, 41, 0.2);
+  border-color: rgba(28, 11, 41, 0.35);
+  color: #1c0b29;
+  font-size: 11px;
+}
+
+.rescue-btn-secondary {
+  background: rgba(45, 22, 68, 0.9);
+  color: #f3e8ff;
+  border: 1px solid rgba(186, 160, 232, 0.42);
+}
+
+.rescue-btn-secondary:hover {
+  background: rgba(66, 33, 98, 0.95);
+  transform: translateY(-1px);
+}
+
+.rescue-failed-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.rescue-failed-overlay.is-reduced-motion,
+.rescue-failed-overlay.is-reduced-motion * {
+  animation: none !important;
+  transition: none !important;
+}
+
 /* ---------- Reduced Motion Override Class & Media Query ---------- */
 .crt-monitor.is-reduced-motion,
 .crt-monitor.is-reduced-motion *,
@@ -2227,6 +2514,7 @@ dialog h2 {
   .horde-map-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .horde-diff-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .horde-stats-strip { grid-template-columns: repeat(2, 1fr); }
+  .rescue-failed-metrics { grid-template-columns: repeat(2, 1fr); }
   .desktop-note { display: block; }
   .preview-header { flex-direction: column; align-items: flex-start; }
 }

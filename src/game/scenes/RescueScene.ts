@@ -23,6 +23,19 @@ import {
   switchHoldProgress,
   type RescueBeatId,
 } from '../combat/rescue-switch';
+import {
+  LINA_INVULN_MS,
+  LINA_MAX_HEALTH,
+  LINA_RADIUS,
+  applyLinaHit,
+  chooseRescueTarget,
+  createLinaDefenseState,
+  isPlayerInterceptingLine,
+  type LinaDefenseState,
+  type LinaHitResult,
+  type RescueFailureReason,
+  type RescueTargetKind,
+} from '../combat/rescue-defense';
 import type { RescueBeatDef } from '../../content/encounters/rescue-beats';
 import { rescueBeats } from '../../content/encounters/rescue-beats';
 import { playCutsceneOverlay, isCutsceneActive } from '../../ui/cutscene-player';
@@ -38,16 +51,17 @@ const BULLET_TTL_MS = 2000;
 const REFLEX_TIME_SCALE = 0.24;
 
 // Hard cover rectangles aligned to the painted props in twilight-ruins-warehouse-yard.png:
-// left handcart, center stone wall + tarp shelter, and bottom-right sandbag barricade.
+// left handcart, center stone wall (shielding Lina from the west while leaving east/south-east
+// flanks open so machines can pressure her and K can step in front to intercept), and sandbags.
 const COVER: CoverRect[] = [
   { x: 238, y: 162, w: 72, h: 52 },  // industrial handcart
-  { x: 332, y: 185, w: 155, h: 78 }, // center stone wall & tarp shelter
+  { x: 332, y: 185, w: 110, h: 66 }, // center stone wall beside tarp shelter
   { x: 538, y: 264, w: 114, h: 46 }, // sandbag barricade
 ];
 
 // Scripted positions aligned to the warehouse yard landmarks.
 const PLAYER_START = { x: 112, y: 236 }; // west service-lane entry
-const LINA_START = { x: 444, y: 222 };   // sheltered under the green tarp behind stone cover
+const LINA_START = { x: 462, y: 224 };   // sheltered beside the stone wall, exposed to east/south-east flanks
 const MAI_MARKER = { x: 682, y: 170 };   // warm-lit covered safe alcove on top-right
 const ISSHIN_POS = { x: 594, y: 244 };   // behind the sandbag barricade providing covering fire
 const SWITCH_POS = { x: 518, y: 152 };   // glowing gate switch on the concrete pillar
@@ -94,8 +108,17 @@ export class RescueScene extends Phaser.Scene {
   private switchLabel!: Phaser.GameObjects.Text;
   private enemySprites = new Map<string, Phaser.GameObjects.Sprite>();
   private enemyShadows = new Map<string, Phaser.GameObjects.Ellipse>();
+  private enemyTargets = new Map<string, RescueTargetKind>();
   private bulletGraphics = new Map<string, Phaser.GameObjects.Arc>();
+  private bulletOrigins = new Map<string, { x: number; y: number; targetKind: RescueTargetKind }>();
   private bulletSeq = 0;
+
+  private linaDefense: LinaDefenseState = createLinaDefenseState();
+  private linaHpGraphics!: Phaser.GameObjects.Graphics;
+  private linaThreatLabel!: Phaser.GameObjects.Text;
+  private linaFlashEndTime = 0;
+  private interceptCount = 0;
+  private defeatReason: RescueFailureReason = 'k-down';
 
   private reflexTint!: Phaser.GameObjects.Rectangle;
   private hitFlash!: Phaser.GameObjects.Rectangle;
@@ -109,7 +132,6 @@ export class RescueScene extends Phaser.Scene {
   private pauseOverlay!: Phaser.GameObjects.Rectangle;
   private pauseTitle!: Phaser.GameObjects.Text;
   private pauseHint!: Phaser.GameObjects.Text;
-  private gameOverPanel!: Phaser.GameObjects.Container;
   private teachingCard!: Phaser.GameObjects.Container;
   private endingBackground?: Phaser.GameObjects.Image;
 
@@ -156,8 +178,14 @@ export class RescueScene extends Phaser.Scene {
     this.paused = false;
     this.teachingPaused = false;
     this.simNow = 0;
+    this.linaDefense = createLinaDefenseState();
+    this.interceptCount = 0;
+    this.defeatReason = this.state.health <= 0 ? 'k-down' : 'lina-down';
     if (this.state.rescueStatus === 'failed') {
       this.defeated = true;
+      if (this.defeatReason === 'lina-down') {
+        this.linaDefense.health = 0;
+      }
     } else if (this.state.rescueStatus === 'not-started') {
       this.state = { ...this.state, rescueStatus: 'active' };
     }
@@ -248,10 +276,15 @@ export class RescueScene extends Phaser.Scene {
     this.bullets = [];
     this.enemySprites.clear();
     this.enemyShadows.clear();
+    this.enemyTargets.clear();
     this.bulletGraphics.clear();
+    this.bulletOrigins.clear();
     this.awardedCounterAttackIds.clear();
     this.damage = new DamageSystem();
     this.player = new Player();
+    this.linaDefense = createLinaDefenseState();
+    this.linaFlashEndTime = 0;
+    this.interceptCount = 0;
 
     // Optional dev query override for inspecting a specific rescue beat cleanly.
     const params = new URLSearchParams(window.location.search);
@@ -345,13 +378,13 @@ export class RescueScene extends Phaser.Scene {
       });
     }
 
-    // Lina behind shelter cover
+    // Lina beside shelter cover with live world-space HP bar & threat alert
     this.linaShadow = this.add.ellipse(this.lina.x, this.lina.y + 16, 22, 8, 0x05070a, 0.45).setDepth(46);
     this.linaSprite = this.add.sprite(this.lina.x, this.lina.y, 'lina-shelter')
       .setDisplaySize(SPRITE_DISPLAY.rescueLina, SPRITE_DISPLAY.rescueLina)
       .setOrigin(0.5, 0.62)
       .setDepth(49);
-    this.linaLabel = this.add.text(this.lina.x, this.lina.y + 22, 'Lina', {
+    this.linaLabel = this.add.text(this.lina.x, this.lina.y + 22, 'Lina · Protect', {
       fontFamily: 'Segoe UI, Arial, sans-serif',
       fontSize: '10px',
       fontStyle: 'bold',
@@ -359,6 +392,15 @@ export class RescueScene extends Phaser.Scene {
       backgroundColor: '#0d1117d9',
       padding: { x: 4, y: 1 },
     }).setOrigin(0.5, 0).setDepth(55);
+    this.linaHpGraphics = this.add.graphics().setDepth(56);
+    this.linaThreatLabel = this.add.text(this.lina.x, this.lina.y - 42, 'TARGETED!', {
+      fontFamily: 'monospace',
+      fontSize: '10px',
+      fontStyle: 'bold',
+      color: '#fecaca',
+      backgroundColor: '#991b1be6',
+      padding: { x: 5, y: 2 },
+    }).setOrigin(0.5, 1).setDepth(57).setVisible(false);
 
     // Mai waiting in the lit safe alcove
     this.add.ellipse(MAI_MARKER.x, MAI_MARKER.y + 18, 24, 9, 0x05070a, 0.48).setDepth(46);
@@ -502,52 +544,34 @@ export class RescueScene extends Phaser.Scene {
     });
     this.teachingCard.on('pointerdown', () => this.dismissTeaching());
 
-    // Game Over overlay
-    this.gameOverPanel = this.add.container(width / 2, height / 2).setDepth(130).setVisible(false);
-    const goBg = this.add.rectangle(0, 0, 360, 196, 0x111827, 0.96).setStrokeStyle(2, 0xef4444);
-    const goTitle = this.add.text(0, -68, 'GAME OVER', {
-      fontSize: '24px', fontFamily: 'monospace', color: '#ef4444',
-    }).setOrigin(0.5);
-    const goHint = this.add.text(0, -28, 'K couldn\'t make it through. The attempt failed.', {
-      fontSize: '13px', fontFamily: 'monospace', color: '#e2e8f0', align: 'center',
-    }).setOrigin(0.5).setWordWrapWidth(320);
-    const restartBtn = this.add.rectangle(0, 18, 228, 36, 0xe3b16b)
-      .setInteractive({ useHandCursor: true }).setDepth(131);
-    const restartBtnText = this.add.text(0, 18, 'Restart rescue [R / Enter]', {
-      fontSize: '13px', fontFamily: 'monospace', fontStyle: 'bold', color: '#0f172a',
-    }).setOrigin(0.5).setDepth(132);
-    const returnBtn = this.add.rectangle(0, 66, 228, 36, 0x334155)
-      .setInteractive({ useHandCursor: true }).setDepth(131);
-    const returnBtnText = this.add.text(0, 66, 'Return to title [Esc]', {
-      fontSize: '13px', fontFamily: 'monospace', color: '#ffffff',
-    }).setOrigin(0.5).setDepth(132);
-    restartBtn.on('pointerdown', () => this.restartMission());
-    returnBtn.on('pointerdown', () => this.returnToTitle());
-    this.gameOverPanel.add([goBg, goTitle, goHint, restartBtn, restartBtnText, returnBtn, returnBtnText]);
-
     // Chapter One Ending renders via the animated DOM overlay (want:chapter-ending).
     this.endingBackground = this.add.image(width / 2, height / 2, 'bg-ending').setOrigin(0.5)
       .setDisplaySize(width, height).setDepth(125).setVisible(false);
 
-    if (this.defeated) {
-      this.showGameOver();
-      return;
-    }
-
     const onGameHidden = () => this.setPaused(true);
     const onGameVisible = () => this.setPaused(false, true);
+    const onRescueRestart = () => {
+      if (this.defeated) this.restartMission();
+    };
     this.game.events.on('hidden', onGameHidden);
     this.game.events.on('visible', onGameVisible);
+    window.addEventListener('want:rescue-restart', onRescueRestart);
 
     this.events.once('shutdown', () => {
       this.game.events.off('hidden', onGameHidden);
       this.game.events.off('visible', onGameVisible);
+      window.removeEventListener('want:rescue-restart', onRescueRestart);
       this.input.keyboard?.removeAllKeys(true);
       this.input.off('pointerdown', onPointerDown);
     });
 
     this.syncSwitchVisuals();
+    this.syncGraphics();
     this.updateHUD();
+
+    if (this.defeated) {
+      this.showGameOver();
+    }
   }
 
   // ---------- beat helpers ----------
@@ -579,11 +603,7 @@ export class RescueScene extends Phaser.Scene {
     if (isCutsceneActive()) return;
 
     if (this.defeated) {
-      if (Phaser.Input.Keyboard.JustDown(this.keys.R) || Phaser.Input.Keyboard.JustDown(this.keys.ENTER)) {
-        this.restartMission();
-      } else if (Phaser.Input.Keyboard.JustDown(this.keys.ESC)) {
-        this.returnToTitle();
-      }
+      // Dedicated DOM Restart Rescue overlay handles R / Enter / Esc cleanly.
       return;
     }
 
@@ -683,16 +703,33 @@ export class RescueScene extends Phaser.Scene {
 
     if (this.fireCooldown > 0) this.fireCooldown = Math.max(0, this.fireCooldown - clampedDt);
 
-    // Enemy tactical AI
+    // Enemy tactical AI — machines actively hunt Lina AND pressure K.
     const newBullets: {
       x: number; y: number; vx: number; vy: number; speed: number;
       damage: number; attackId: string | null;
+      originX: number; originY: number; targetKind: RescueTargetKind;
     }[] = [];
-    for (const e of this.enemies) {
+    const linaSafe = this.lina.phase === 'safe';
+    for (let idx = 0; idx < this.enemies.length; idx++) {
+      const e = this.enemies[idx];
       if (e.phase === 'dead') continue;
+      const targetKind = chooseRescueTarget({
+        enemy: e,
+        enemyIndex: idx,
+        beatId: this.beatId(),
+        player: this.player,
+        lina: this.lina,
+        linaSafe,
+        prevTarget: this.enemyTargets.get(e.id),
+      });
+      this.enemyTargets.set(e.id, targetKind);
+      const target = targetKind === 'lina'
+        ? { x: this.lina.x, y: this.lina.y, radius: LINA_RADIUS }
+        : { x: this.player.x, y: this.player.y, radius: PLAYER_RADIUS };
+
       const res = updateEnemy(
         e,
-        { x: this.player.x, y: this.player.y, radius: PLAYER_RADIUS },
+        target,
         this.simNow,
         dtSec,
         COVER,
@@ -701,8 +738,14 @@ export class RescueScene extends Phaser.Scene {
       );
       if (res.startedTelegraph === 'scout') {
         audio.playCue('scout-windup');
+        if (targetKind === 'lina') {
+          this.fx.callout(e.x, e.y - 30, 'AIMING AT LINA!', '#fca5a5', true);
+        }
       } else if (res.startedTelegraph === 'rusher') {
         audio.playCue('rusher-windup');
+        if (targetKind === 'lina') {
+          this.fx.callout(e.x, e.y - 30, 'CHARGING LINA!', '#fca5a5', true);
+        }
       }
       if (res.slammedCover) {
         audio.playCue('lane-crash');
@@ -710,7 +753,9 @@ export class RescueScene extends Phaser.Scene {
         this.fx.sparks(e.x, e.y, 0xfde047, 10, 34);
         this.fx.callout(e.x, e.y - 34, 'STAGGERED! 1.5x', '#fde047', true);
       }
-      for (const b of res.bullets) newBullets.push(b);
+      for (const b of res.bullets) {
+        newBullets.push({ ...b, originX: e.x, originY: e.y, targetKind });
+      }
     }
 
     // Fixed-queue spawns: only consume queue entry when a slot is available (never silently drop!)
@@ -739,20 +784,23 @@ export class RescueScene extends Phaser.Scene {
     }
     for (const b of newBullets) {
       audio.playCue('gunshot');
+      const id = `b-${this.allocBulletId()}`;
       this.bullets.push({
-        id: `b-${this.allocBulletId()}`,
+        id,
         x: b.x, y: b.y, prevX: b.x, prevY: b.y,
         vx: b.vx, vy: b.vy, speed: b.speed, damage: b.damage,
         owner: 'enemy', attackId: b.attackId, born: this.simNow, ttl: BULLET_TTL_MS,
       });
+      this.bulletOrigins.set(id, { x: b.originX, y: b.originY, targetKind: b.targetKind });
     }
 
     this.resolveCollisions(this.simNow);
 
-    // Death wins same-frame race over milestones
+    // Death (K or Lina) wins same-frame race over milestones
     if (this.defeated) {
       this.syncGraphics();
       this.updateHUD();
+      this.handleDefeat(this.defeatReason);
       return;
     }
 
@@ -782,6 +830,10 @@ export class RescueScene extends Phaser.Scene {
 
     this.enemies = this.enemies.filter((e) => e.phase !== 'dead');
     this.bullets = this.bullets.filter((b) => !b.hit && this.simNow - b.born < b.ttl && this.inBounds(b));
+    const liveBulletIds = new Set(this.bullets.map((b) => b.id));
+    for (const id of this.bulletOrigins.keys()) {
+      if (!liveBulletIds.has(id)) this.bulletOrigins.delete(id);
+    }
 
     this.maybeAdvanceBeat();
 
@@ -790,7 +842,9 @@ export class RescueScene extends Phaser.Scene {
     this.reflexTint.setVisible(this.player.canCounter(this.simNow));
     this.updateHUD();
 
-    if (this.state.health <= 0 && !this.defeated) this.handleDefeat();
+    if ((this.state.health <= 0 || this.linaDefense.health <= 0) && !this.defeated) {
+      this.handleDefeat(this.linaDefense.health <= 0 ? 'lina-down' : 'k-down');
+    }
   }
 
   private allocBulletId(): number { return ++this.bulletSeq; }
@@ -1022,10 +1076,18 @@ export class RescueScene extends Phaser.Scene {
     }
 
     const dodgeImmune = this.player.isDodgeInvulnerable(effNow);
+    const linaCanBeHit = this.lina.phase !== 'safe' && this.linaDefense.health > 0;
 
-    // Enemy projectiles vs player
+    // 1. Enemy projectiles vs K FIRST (allows body-blocking & Reflex-Dodge interception for Lina!)
     for (const b of this.bullets) {
       if (b.owner !== 'enemy' || b.hit) continue;
+      const origin = this.bulletOrigins.get(b.id);
+      const aimedAtLina = Boolean(
+        origin
+        && (origin.targetKind === 'lina'
+          || isPlayerInterceptingLine(origin.x, origin.y, this.lina.x, this.lina.y, this.player.x, this.player.y)),
+      );
+
       if (dodgeImmune) {
         if (
           b.attackId &&
@@ -1033,30 +1095,82 @@ export class RescueScene extends Phaser.Scene {
           circleOverlap(b.x, b.y, BULLET_RADIUS, this.player.x, this.player.y, PLAYER_RADIUS + PERFECT_DODGE_GRAZE_MARGIN)
         ) {
           this.grantCounter(b.attackId, effNow);
+          if (aimedAtLina) {
+            // Deflect shots aimed at Lina when K Reflex-Dodges across the firing lane!
+            b.hit = true;
+            this.interceptCount++;
+            this.fx.sparks(b.x, b.y, 0xfde047, 10, 30);
+            this.fx.callout(this.player.x, this.player.y - 34, 'INTERCEPTED!', '#fde047', true);
+          }
         }
         continue;
       }
-      if (!circleOverlap(b.x, b.y, BULLET_RADIUS, this.player.x, this.player.y, PLAYER_RADIUS)) continue;
-      b.hit = true;
-      const res = this.damage.acceptHit(this.state, b.attackId, effNow);
-      if (res) this.applyHit(res, effNow);
+
+      if (circleOverlap(b.x, b.y, BULLET_RADIUS, this.player.x, this.player.y, PLAYER_RADIUS)) {
+        b.hit = true;
+        const res = this.damage.acceptHit(this.state, b.attackId, effNow);
+        if (res) {
+          if (aimedAtLina) {
+            this.interceptCount++;
+            this.fx.callout(this.player.x, this.player.y - 34, 'BODY BLOCK!', '#fbbf24', true);
+          }
+          this.applyHit(res, effNow);
+        }
+        continue;
+      }
+
+      // 2. Enemy projectiles vs LINA SECOND (only if K didn't intercept it!)
+      if (linaCanBeHit && circleOverlap(b.x, b.y, BULLET_RADIUS, this.lina.x, this.lina.y, LINA_RADIUS)) {
+        b.hit = true;
+        const linaRes = applyLinaHit(this.linaDefense, b.attackId, this.difficulty, effNow);
+        if (linaRes.hit) this.applyLinaDamage(linaRes, effNow);
+      }
     }
 
-    // Committed Rusher contact vs player
+    // 3. Committed Rusher contact vs K FIRST, then Lina SECOND
     for (const e of this.enemies) {
       if (e.phase !== 'committed' || !e.attackId) continue;
+      const huntingLina = this.enemyTargets.get(e.id) === 'lina';
+
       if (dodgeImmune) {
         if (
           !this.awardedCounterAttackIds.has(e.attackId) &&
           circleOverlap(e.x, e.y, e.radius, this.player.x, this.player.y, PLAYER_RADIUS + PERFECT_DODGE_GRAZE_MARGIN)
         ) {
           this.grantCounter(e.attackId, effNow);
+          if (huntingLina) {
+            staggerEnemy(e, effNow, 700);
+            this.interceptCount++;
+            this.fx.sparks(e.x, e.y, 0xfde047, 10, 32);
+            this.fx.callout(e.x, e.y - 34, 'INTERCEPTED!', '#fde047', true);
+          }
         }
         continue;
       }
-      if (!circleOverlap(this.player.x, this.player.y, PLAYER_RADIUS, e.x, e.y, e.radius)) continue;
-      const res = this.damage.acceptHit(this.state, e.attackId, effNow);
-      if (res) this.applyHit(res, effNow);
+
+      if (circleOverlap(this.player.x, this.player.y, PLAYER_RADIUS, e.x, e.y, e.radius)) {
+        const res = this.damage.acceptHit(this.state, e.attackId, effNow);
+        if (res) {
+          if (huntingLina) {
+            // K's body-block halts the Rusher's charge so it cannot plow through K into Lina!
+            staggerEnemy(e, effNow, 750);
+            this.interceptCount++;
+            this.fx.callout(this.player.x, this.player.y - 34, 'BODY BLOCK!', '#fbbf24', true);
+          }
+          this.applyHit(res, effNow);
+        }
+        continue;
+      }
+
+      if (linaCanBeHit && circleOverlap(this.lina.x, this.lina.y, LINA_RADIUS, e.x, e.y, e.radius)) {
+        const linaRes = applyLinaHit(this.linaDefense, e.attackId, this.difficulty, effNow);
+        if (linaRes.hit) {
+          this.applyLinaDamage(linaRes, effNow);
+          e.phase = 'recovering';
+          e.recoverEndTime = effNow + 680;
+          e.attackId = null;
+        }
+      }
     }
 
     if (this.player.counterActive && effNow >= this.player.counterEndTime) {
@@ -1077,7 +1191,25 @@ export class RescueScene extends Phaser.Scene {
     audio.playCue('k-hit');
     this.fx.shake(160, 0.011);
     this.fx.sparks(this.player.x, this.player.y, 0xef4444, 10, 32);
-    if (res.killed) this.defeated = true;
+    if (res.killed) {
+      this.defeatReason = 'k-down';
+      this.defeated = true;
+    }
+  }
+
+  private applyLinaDamage(res: LinaHitResult, effNow: number) {
+    this.linaFlashEndTime = effNow + 240;
+    audio.playCue('k-hit');
+    this.fx.shake(175, 0.012);
+    this.fx.sparks(this.lina.x, this.lina.y, 0xf87171, 14, 38);
+    this.fx.callout(this.lina.x, this.lina.y - 36, `LINA -${res.damage} HP!`, '#f87171', true);
+    this.showToast(`Lina took a hit (${res.remainingHealth}/${LINA_MAX_HEALTH} HP) — intercept or eliminate attackers!`, 2400);
+    if (res.defeated) {
+      this.state = { ...this.state, rescueStatus: 'failed' };
+      saveRun(this.state);
+      this.defeatReason = 'lina-down';
+      this.defeated = true;
+    }
   }
 
   private grantCounter(attackId: string, effNow: number) {
@@ -1110,15 +1242,23 @@ export class RescueScene extends Phaser.Scene {
     this.counterText.setText('REFLEX COUNTER — CLICK TO FIRE RAIL').setVisible(true);
   }
 
-  private handleDefeat() {
+  private handleDefeat(reason: RescueFailureReason) {
+    if (this.paused && this.defeated && this.state.rescueStatus === 'failed') {
+      // Guard against duplicate dispatches on the same defeat.
+      return;
+    }
+    this.defeatReason = reason;
     this.defeated = true;
     this.paused = true;
+    if (this.state.rescueStatus !== 'failed') {
+      this.state = { ...this.state, rescueStatus: 'failed' };
+    }
     saveRun(this.state);
     audio.playCue('failure');
-    this.pauseOverlay.setVisible(true);
-    this.gameOverPanel.setVisible(true);
     this.counterText.setVisible(false);
     this.reflexTint.setVisible(false);
+    this.linaThreatLabel.setVisible(false);
+    this.showGameOver();
   }
 
   private restartMission() {
@@ -1131,10 +1271,13 @@ export class RescueScene extends Phaser.Scene {
     this.fireCooldown = 0;
     this.hitFlashEndTime = 0;
     this.hitTextEndTime = 0;
+    this.linaFlashEndTime = 0;
     this.isshinCoverFireTime = 0;
     this.lastGhostTime = 0;
     this.teachingPaused = false;
     this.counterTaught = false;
+    this.interceptCount = 0;
+    this.defeatReason = 'k-down';
     this.awardedCounterAttackIds.clear();
 
     const failedState = { ...this.state, rescueStatus: 'failed' as const };
@@ -1145,6 +1288,7 @@ export class RescueScene extends Phaser.Scene {
     this.player = new Player();
     this.player.x = PLAYER_START.x;
     this.player.y = PLAYER_START.y;
+    this.linaDefense = createLinaDefenseState();
 
     this.enemies = [];
     this.bullets = [];
@@ -1152,8 +1296,10 @@ export class RescueScene extends Phaser.Scene {
     this.enemySprites.clear();
     this.enemyShadows.forEach((s) => s.destroy());
     this.enemyShadows.clear();
+    this.enemyTargets.clear();
     this.bulletGraphics.forEach((g) => g.destroy());
     this.bulletGraphics.clear();
+    this.bulletOrigins.clear();
 
     this.gateOpen = false;
     this.holdExpired = false;
@@ -1164,7 +1310,8 @@ export class RescueScene extends Phaser.Scene {
     };
     this.linaSprite.setTexture('lina-shelter')
       .setDisplaySize(SPRITE_DISPLAY.rescueLina, SPRITE_DISPLAY.rescueLina)
-      .setPosition(this.lina.x, this.lina.y);
+      .setPosition(this.lina.x, this.lina.y)
+      .clearTint();
     this.linaShadow.setPosition(this.lina.x, this.lina.y + 16);
     this.linaLabel.setPosition(this.lina.x, this.lina.y + 22);
 
@@ -1177,7 +1324,6 @@ export class RescueScene extends Phaser.Scene {
     this.spawnQueue = [...beat.spawns];
     this.nextSpawnIndex = 0;
 
-    this.gameOverPanel.setVisible(false);
     this.pauseOverlay.setVisible(false);
     this.pauseTitle.setVisible(false);
     this.pauseHint.setVisible(false);
@@ -1186,10 +1332,12 @@ export class RescueScene extends Phaser.Scene {
     this.hitFlash.setVisible(false);
     this.teachingCard.setVisible(false);
     this.reflexTint.setVisible(false);
+    this.linaThreatLabel.setVisible(false);
 
     this.syncSwitchVisuals();
     this.updateHUD();
     this.syncGraphics();
+    this.showToast('Rescue restarted — K and Lina back at full health!', 2200);
   }
 
   private returnToTitle() {
@@ -1198,7 +1346,18 @@ export class RescueScene extends Phaser.Scene {
 
   private showGameOver() {
     this.pauseOverlay.setVisible(true);
-    this.gameOverPanel.setVisible(true);
+    window.dispatchEvent(
+      new CustomEvent('want:rescue-failed', {
+        detail: {
+          reason: this.defeatReason,
+          beatId: this.beatId(),
+          difficultyLabel: difficultyRules[this.difficulty].label,
+          kHealth: this.state.health,
+          linaHealth: this.linaDefense.health,
+          intercepts: this.interceptCount,
+        },
+      }),
+    );
   }
 
   private showEnding() {
@@ -1356,21 +1515,30 @@ export class RescueScene extends Phaser.Scene {
     }
 
     // Crisp telegraphs: Scout laser sight + Rusher shaded charge corridor
+    // Distinct high-contrast crimson-magenta alert style when targeting Lina!
     this.telegraphGraphics.clear();
+    let linaUnderThreat = false;
     for (const e of this.enemies) {
+      if (e.phase !== 'telegraph' && !(e.phase === 'committed' && this.enemyTargets.get(e.id) === 'lina')) {
+        continue;
+      }
+      const targetingLina = this.enemyTargets.get(e.id) === 'lina' && this.lina.phase !== 'safe';
+      if (targetingLina) linaUnderThreat = true;
       if (e.phase !== 'telegraph') continue;
+
       if (e.kind === 'scout') {
-        const len = 300;
-        const alpha = e.dirLocked ? 0.92 : 0.42 + e.telegraphT * 0.35;
-        this.telegraphGraphics.lineStyle(e.dirLocked ? 2.5 : 1.5, e.dirLocked ? 0xff3b3b : 0xfbbf24, alpha);
+        const len = 320;
+        const alpha = e.dirLocked ? 0.96 : 0.48 + e.telegraphT * 0.36;
+        const color = targetingLina ? (e.dirLocked ? 0xff1f5a : 0xf43f5e) : (e.dirLocked ? 0xff3b3b : 0xfbbf24);
+        this.telegraphGraphics.lineStyle(targetingLina ? 3 : e.dirLocked ? 2.5 : 1.5, color, alpha);
         this.telegraphGraphics.lineBetween(e.x, e.y, e.x + e.dirX * len, e.y + e.dirY * len);
       } else {
-        const laneLen = 190;
+        const laneLen = 200;
         const perpX = -e.dirY * 14;
         const perpY = e.dirX * 14;
         const endX = e.x + e.dirX * laneLen;
         const endY = e.y + e.dirY * laneLen;
-        this.telegraphGraphics.fillStyle(0xef4444, e.dirLocked ? 0.24 : 0.12);
+        this.telegraphGraphics.fillStyle(targetingLina ? 0xf43f5e : 0xef4444, e.dirLocked ? 0.28 : 0.14);
         this.telegraphGraphics.beginPath();
         this.telegraphGraphics.moveTo(e.x + perpX, e.y + perpY);
         this.telegraphGraphics.lineTo(endX + perpX, endY + perpY);
@@ -1378,10 +1546,38 @@ export class RescueScene extends Phaser.Scene {
         this.telegraphGraphics.lineTo(e.x - perpX, e.y - perpY);
         this.telegraphGraphics.closePath();
         this.telegraphGraphics.fillPath();
-        this.telegraphGraphics.lineStyle(2, e.dirLocked ? 0xff4d4d : 0xf97316, e.dirLocked ? 0.9 : 0.55);
+        this.telegraphGraphics.lineStyle(targetingLina ? 2.6 : 2, targetingLina ? 0xff2a6d : e.dirLocked ? 0xff4d4d : 0xf97316, e.dirLocked ? 0.94 : 0.6);
         this.telegraphGraphics.lineBetween(e.x, e.y, endX, endY);
       }
     }
+
+    // World-space Lina Health Bar & Danger Pulse
+    this.linaHpGraphics.clear();
+    if (this.lina.phase !== 'safe') {
+      const barW = 46;
+      const barH = 6;
+      const bx = this.lina.x - barW / 2;
+      const by = this.lina.y - 34;
+      const ratio = Math.max(0, Math.min(1, this.linaDefense.health / LINA_MAX_HEALTH));
+      const fillColor = ratio > 0.6 ? 0x4ade80 : ratio > 0.3 ? 0xfbbf24 : 0xf87171;
+      this.linaHpGraphics.fillStyle(0x090d14, 0.88);
+      this.linaHpGraphics.fillRoundedRect(bx - 1, by - 1, barW + 2, barH + 2, 2);
+      if (ratio > 0) {
+        this.linaHpGraphics.fillStyle(fillColor, 1);
+        this.linaHpGraphics.fillRect(bx, by, Math.round(barW * ratio), barH);
+      }
+      this.linaHpGraphics.lineStyle(1, linaUnderThreat ? 0xff4d6d : 0xfde68a, 0.9);
+      this.linaHpGraphics.strokeRect(bx - 1, by - 1, barW + 2, barH + 2);
+
+      if (linaUnderThreat) {
+        const pulseR = 22 + Math.sin(this.simNow * 0.014) * 3;
+        this.linaHpGraphics.lineStyle(2, 0xff2a6d, 0.72);
+        this.linaHpGraphics.strokeCircle(this.lina.x, this.lina.y, pulseR);
+      }
+    }
+    this.linaThreatLabel
+      .setPosition(this.lina.x, this.lina.y - 38)
+      .setVisible(linaUnderThreat && !this.defeated && !this.ended);
 
     this.counterRing.clear();
     if (this.player.counterActive) {
@@ -1395,8 +1591,17 @@ export class RescueScene extends Phaser.Scene {
       this.counterRing.setVisible(false);
     }
 
-    if (this.lina.phase === 'safe') this.linaSprite.setTint(0x86efac);
-    else this.linaSprite.clearTint();
+    if (this.lina.phase === 'safe') {
+      this.linaSprite.setTint(0x86efac);
+    } else if (this.simNow < this.linaFlashEndTime) {
+      this.linaSprite.setTintFill(0xff6b6b);
+    } else if (this.simNow < this.linaDefense.invulnerableUntil && Math.floor(this.simNow / 90) % 2 === 0) {
+      this.linaSprite.setTint(0xfca5a5);
+    } else {
+      this.linaSprite.clearTint();
+    }
+    // Keep invuln constant visibly referenced for lint/strict checks
+    void LINA_INVULN_MS;
   }
 
   private updateHUD() {
@@ -1415,23 +1620,27 @@ export class RescueScene extends Phaser.Scene {
 
     const hold = this.beatId() === 'hold' ? ` · ${Math.max(0, this.holdSecondsLeft)}s` : '';
     const gate = this.gateOpen ? ' · GATE OPEN' : '';
-    const ammoStr = this.player.reloading ? 'RELOAD [R]' : `AMMO ${this.player.ammo}/6`;
+    const ammoStr = this.player.reloading ? 'RELOAD' : `AMMO ${this.player.ammo}/6`;
+    const linaHpVal = Math.max(0, Math.round(this.linaDefense.health));
     this.hudText.setText(
-      `${d.label}  ${beatLabel}${hold}${gate}  ·  HP ${bars} ${this.state.health}/100  ·  ${ammoStr}  ·  Enemies ${active}/${this.currentBeat().maxActive}`,
+      `${d.label} ${beatLabel}${hold}${gate} · K ${bars} ${this.state.health} · LINA ${linaHpVal}% · ${ammoStr} · Hostiles ${active}/${this.currentBeat().maxActive}`,
     );
+
+    document.body.dataset.kHp = String(Math.max(0, Math.round(this.state.health)));
+    document.body.dataset.linaHp = String(linaHpVal);
 
     // Clear, unambiguous objective banner for every rescue stage
     let obj = '';
     if (this.beatId() === 'alley') {
-      obj = 'BEAT 1/3 · Clear the alley machines (Click to fire · Space to Reflex Dodge · R to reload)';
+      obj = 'BEAT 1/3 · Protect Lina & clear the alley — step in front of crimson lines to intercept or cut them down!';
     } else if (this.beatId() === 'hold') {
-      obj = `BEAT 2/3 · Hold Lina's shelter (${this.holdSecondsLeft}s left) — Gate unlocks when timer ends`;
+      obj = `BEAT 2/3 · Defend Lina (${this.holdSecondsLeft}s left) — intercept fire aimed at her or Reflex Dodge [Space]`;
     } else if (!this.gateOpen) {
       obj = this.switchHold.active
-        ? 'BEAT 3/3 · Pulling Gate Switch — stay near the pillar!'
-        : 'BEAT 3/3 · Move to the glowing Gate Switch and press E or Click it!';
+        ? 'BEAT 3/3 · Pulling Gate Switch — stay near the pillar & guard Lina!'
+        : 'BEAT 3/3 · Keep Lina alive, move to the glowing Gate Switch, and press E or Click it!';
     } else if (this.lina.phase === 'moving-to-mai') {
-      obj = 'EXTRACTION · Gate open — covering Lina as she reaches Mai!';
+      obj = 'EXTRACTION · Gate open — covering Lina as she runs to Mai!';
     } else {
       obj = 'BEAT 3/3 · Gate OPEN! Clear remaining machines so Lina can cross to Mai';
     }

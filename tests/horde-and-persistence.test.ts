@@ -28,6 +28,19 @@ import {
   computeTacticalRangedMove,
   hasImmediateCoverAhead,
 } from '../src/game/horde/ai';
+import {
+  HORDE_WEAPON_IDS,
+  canArsenalFire,
+  computeSplashDamage,
+  consumeArsenalShot,
+  createArsenalState,
+  cycleWeapon,
+  effectiveWeaponMoveMult,
+  hordeWeapons,
+  switchWeapon,
+  tickArsenal,
+  triggerArsenalReload,
+} from '../src/game/horde/weapons';
 import { DEFAULT_PREFERENCES } from '../src/services/preferences';
 import {
   HORDE_PLAYER_KEY,
@@ -467,5 +480,100 @@ describe('Audio manifest mapping & boosted default volumes', () => {
     expect(DEFAULT_PREFERENCES.master).toBeGreaterThanOrEqual(0.9);
     expect(DEFAULT_PREFERENCES.music).toBeGreaterThanOrEqual(0.8);
     expect(DEFAULT_PREFERENCES.effects).toBeGreaterThanOrEqual(0.9);
+  });
+});
+
+describe('Horde Mode 5-weapon arsenal & per-weapon caveats', () => {
+  it('defines Pistol, Machine Gun, Rail Sniper, Rotary Minigun, and Rocket Launcher with distinct caveats', () => {
+    expect(HORDE_WEAPON_IDS).toEqual(['pistol', 'machinegun', 'sniper', 'minigun', 'rocket']);
+
+    // Sniper: highest single-shot multiplier & speed, piercing, zero spread, slow bolt cooldown
+    expect(hordeWeapons.sniper.piercing).toBe(true);
+    expect(hordeWeapons.sniper.baseSpreadRad).toBe(0);
+    expect(hordeWeapons.sniper.damageMult).toBeGreaterThan(3);
+    expect(hordeWeapons.sniper.fireCooldownMs).toBeGreaterThanOrEqual(850);
+    expect(hordeWeapons.sniper.magSize).toBeLessThanOrEqual(4);
+
+    // Minigun: mandatory spin-up, fastest fire rate, heavy slowdown while firing
+    expect(hordeWeapons.minigun.autoFire).toBe(true);
+    expect(hordeWeapons.minigun.spinUpMs).toBeGreaterThanOrEqual(350);
+    expect(hordeWeapons.minigun.fireCooldownMs).toBeLessThan(hordeWeapons.machinegun.fireCooldownMs);
+    expect(hordeWeapons.minigun.firingMoveSpeedMult).toBeLessThan(0.65);
+
+    // Rocket Launcher: slowest projectile, AoE splash radius, self-blast danger, 2-shot tube
+    expect(hordeWeapons.rocket.bulletSpeed).toBeLessThan(hordeWeapons.pistol.bulletSpeed);
+    expect(hordeWeapons.rocket.splashRadius).toBeGreaterThanOrEqual(100);
+    expect(hordeWeapons.rocket.selfDamageRadius).toBeGreaterThanOrEqual(60);
+    expect(hordeWeapons.rocket.magSize).toBe(2);
+  });
+
+  it('enforces Minigun spin-up delay and heavy movement slowdown while spooled up', () => {
+    const arsenal = createArsenalState('minigun');
+    expect(canArsenalFire(arsenal, 0)).toBe(false);
+
+    // Partial spin-up (200ms < 420ms) still cannot fire
+    const step1 = tickArsenal(arsenal, 200, 200, true);
+    expect(step1.startedSpinUp).toBe(true);
+    expect(canArsenalFire(arsenal, 200)).toBe(false);
+    expect(effectiveWeaponMoveMult(arsenal, 200, true)).toBe(hordeWeapons.minigun.firingMoveSpeedMult);
+
+    // Full spin-up (>= 420ms) unlocks rapid fire
+    tickArsenal(arsenal, 250, 450, true);
+    expect(canArsenalFire(arsenal, 450)).toBe(true);
+    const shot = consumeArsenalShot(arsenal, 450, 35, 1, 1, 0, () => 0.5);
+    expect(shot?.weaponId).toBe('minigun');
+    expect(arsenal.slots.minigun.ammo).toBe(hordeWeapons.minigun.magSize - 1);
+  });
+
+  it('widens Machine Gun bloom on sustained bursts and decays it when releasing fire', () => {
+    const arsenal = createArsenalState('machinegun');
+    let now = 0;
+    for (let i = 0; i < 6; i++) {
+      consumeArsenalShot(arsenal, now, 35, 1, 1, 0, () => 0.5);
+      now += hordeWeapons.machinegun.fireCooldownMs + 5;
+    }
+    const peakBloom = arsenal.slots.machinegun.bloom;
+    expect(peakBloom).toBeGreaterThan(0.05);
+
+    tickArsenal(arsenal, 1000, now + 1000, false);
+    expect(arsenal.slots.machinegun.bloom).toBeLessThan(peakBloom);
+  });
+
+  it('preserves per-weapon ammo across switches, cancels active reloads, and cycles cleanly', () => {
+    const arsenal = createArsenalState('sniper');
+    const shot = consumeArsenalShot(arsenal, 0, 35, 1, 1, 0, () => 0.5);
+    expect(shot?.piercing).toBe(true);
+    expect(arsenal.slots.sniper.ammo).toBe(3);
+
+    expect(triggerArsenalReload(arsenal, 100)).toBe('started');
+    expect(arsenal.slots.sniper.reloading).toBe(true);
+
+    // Switching cancels in-progress reload without losing remaining ammo
+    expect(switchWeapon(arsenal, 'rocket')).toBe(true);
+    expect(arsenal.activeId).toBe('rocket');
+    expect(arsenal.slots.sniper.reloading).toBe(false);
+    expect(arsenal.slots.sniper.ammo).toBe(3);
+
+    // Cycling wraps around rocket -> pistol
+    expect(cycleWeapon(arsenal, 1)).toBe('pistol');
+    expect(cycleWeapon(arsenal, -1)).toBe('rocket');
+  });
+
+  it('supports active Snap-Reload and rocket AoE splash damage falloff', () => {
+    const arsenal = createArsenalState('rocket');
+    consumeArsenalShot(arsenal, 0, 40, 1, 1, 0, () => 0.5);
+    expect(triggerArsenalReload(arsenal, 100)).toBe('started');
+    // Hit sweet spot (50% through 2200ms reload -> t = 1200ms)
+    expect(triggerArsenalReload(arsenal, 1200)).toBe('snap');
+    expect(arsenal.slots.rocket.reloading).toBe(false);
+    expect(arsenal.slots.rocket.ammo).toBe(2);
+    expect(arsenal.slots.rocket.overchargedRounds).toBeGreaterThan(0);
+
+    // Splash falloff math: full damage at center, reduced at edge, 0 outside radius
+    expect(computeSplashDamage(0, 0, 0, 0, 108, 120)).toBe(120);
+    const midSplash = computeSplashDamage(0, 0, 54, 0, 108, 120);
+    expect(midSplash).toBeGreaterThan(60);
+    expect(midSplash).toBeLessThan(120);
+    expect(computeSplashDamage(0, 0, 120, 0, 108, 120)).toBe(0);
   });
 });

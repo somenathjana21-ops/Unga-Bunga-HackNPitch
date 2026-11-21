@@ -4,9 +4,20 @@ import type { Difficulty } from './game/rules';
 import { playCutsceneOverlay, destroyCutscenePlayer } from './ui/cutscene-player';
 import { openSettingsPanel } from './ui/settings-panel';
 import { showEndingScreen, destroyEndingScreen } from './ui/ending-screen';
+import {
+  showRescueFailedScreen,
+  destroyRescueFailedScreen,
+  type RescueFailedDetail,
+} from './ui/rescue-failed-screen';
 import { mountHordeLobby, showHordeResults, destroyHordeResults } from './ui/horde-modal';
 import { loadPreferences, savePreferences, DEFAULT_PREFERENCES } from './services/preferences';
 import { audio } from './services/audio';
+import {
+  loadGameModule,
+  registerOfflineCache,
+  warmCriticalAssets,
+  warmGameModule,
+} from './services/asset-cache';
 import {
   clearStoryProgress,
   loadRun,
@@ -378,9 +389,10 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <h2 id="controls-title">Find your footing.</h2>
     <p><kbd>WASD</kbd> or <kbd>↑ ↓ ← →</kbd> Move through rooms or weave across combat arenas.</p>
     <p><kbd>E</kbd> Interact with people, props, and gate switches. Advance dialogue.</p>
-    <p><kbd>Left Click</kbd> Fire your pistol or Counter Rail during combat and Horde Mode.</p>
+    <p><kbd>Left Click</kbd> Fire your weapon or Counter Rail (hold for Machine Gun / Minigun).</p>
+    <p><kbd>1–5</kbd>, <kbd>Q</kbd>, or <kbd>Scroll</kbd> Switch Horde weapons (Pistol, MG, Sniper, Minigun, Rocket).</p>
     <p><kbd>Space</kbd> Advance dialogue, or Reflex Dodge through attacks to trigger Bullet-Time.</p>
-    <p><kbd>R</kbd> Reload your sidearm. Press again in the gold sweet spot for a Snap Reload.</p>
+    <p><kbd>R</kbd> Reload your weapon. Press again in the gold sweet spot for a Snap Reload.</p>
     <p><kbd>Esc</kbd> Skip dialogue, pause combat, or return to the arcade menu.</p>
     <p>Menus work with Arrow keys, Tab, and Enter. Your system's reduced-motion preference is respected.</p>
     <form method="dialog"><button class="primary">Got it</button></form>
@@ -474,6 +486,9 @@ audio.configure({
 });
 syncAudioToggleUI();
 syncReducedMotionClass();
+// Register cache-first Service Worker immediately so all art & audio stay snappy
+// even under severe network fluctuations.
+registerOfflineCache();
 
 const savePrefs = (next: typeof preferences): void => {
   preferences = next;
@@ -765,6 +780,10 @@ function confirmReadyYes(): void {
   if (activeMode !== 'ready') return;
   audio.unlock();
   audio.playCue('counter-ready');
+  // Lazily pre-warm Phaser bundle + core assets once the player enters Mode Select
+  // so launching Story, Rescue, or Horde feels instantaneous.
+  warmGameModule();
+  warmCriticalAssets();
   crtReadyYesBtn.classList.add('is-confirmed');
   playCrtTransition('warp', () => {
     crtReadyYesBtn.classList.remove('is-confirmed');
@@ -800,7 +819,11 @@ function destroyActiveGame(flushStorySave: boolean): void {
   }
   destroyCutscenePlayer();
   destroyEndingScreen();
+  destroyRescueFailedScreen();
   destroyHordeResults();
+  delete document.body.dataset.kHp;
+  delete document.body.dataset.linaHp;
+  delete document.body.dataset.rescueFailedReason;
   if (game) {
     game.destroy(true);
     game = undefined;
@@ -836,7 +859,7 @@ async function launchStoryWorld(
   startLabel.textContent = 'LOADING…';
   errorBox.hidden = true;
   try {
-    const { createGame } = await import('./game/create-game');
+    const { createGame } = await loadGameModule();
     const resumeRescue =
       initialState.checkpoint === 'rescue-start' && initialState.rescueStatus !== 'complete';
 
@@ -899,7 +922,7 @@ async function launchHordeGame(config: HordeConfig): Promise<void> {
   lastHordeConfig = config;
   errorBox.hidden = true;
   try {
-    const { createGame } = await import('./game/create-game');
+    const { createGame } = await loadGameModule();
     const diff = hordeDifficultyRules[config.difficulty];
     const dur = hordeDurationRules[config.duration];
     const mapLabel = config.mapChoice && config.mapChoice !== 'random'
@@ -912,7 +935,7 @@ async function launchHordeGame(config: HordeConfig): Promise<void> {
     document.querySelector('#mode-label')!.textContent =
       `${mapLabel} · ${diff.label} (${formatScore(diff.difficultyFactor)}×) · ${dur.label}`;
     previewFooterHint.textContent =
-      'WASD / Arrows: Move  ·  Click: Fire  ·  Space: Reflex Dodge  ·  R: Snap Reload  ·  Esc / P: Pause';
+      'WASD: Move · Click/Hold: Fire · 1-5 / Q / Scroll: Switch Weapon · Space: Reflex Dodge · R: Snap Reload · Esc / P: Pause';
 
     playCrtTransition('warp', () => {
       activeMode = 'horde';
@@ -936,7 +959,7 @@ async function launchDevScene(sceneKey: 'combat' | 'rescue', modeLabel: string, 
   continueBtn.disabled = true;
   errorBox.hidden = true;
   try {
-    const { createGame } = await import('./game/create-game');
+    const { createGame } = await loadGameModule();
     const difficulty = overrideState?.difficulty ?? selectedDifficulty();
     previewEyebrow.textContent = 'WANT / CHAPTER ONE';
     document.querySelector('#mode-label')!.textContent = modeLabel;
@@ -1169,6 +1192,23 @@ document.querySelector('#back-to-menu')!.addEventListener('click', () => {
   returnToTitle(activeMode === 'story', 'select');
 });
 
+// Dedicated Rescue Mission Failed / Restart Rescue overlay
+window.addEventListener('want:rescue-failed', (event: Event) => {
+  const detail = (event as CustomEvent<RescueFailedDetail>).detail;
+  if (!detail) return;
+  showRescueFailedScreen({
+    ...detail,
+    reducedMotion: isReducedMotion(),
+    onRestartRescue: () => {
+      window.dispatchEvent(new CustomEvent('want:rescue-restart'));
+      gameHost.focus({ preventScroll: true });
+    },
+    onReturnToTitle: () => {
+      returnToTitle(false, 'select');
+    },
+  });
+});
+
 // Animated Chapter One Ending overlay
 window.addEventListener('want:chapter-ending', (event: Event) => {
   const detail = (event as CustomEvent<{ difficulty?: Difficulty }>).detail;
@@ -1179,6 +1219,7 @@ window.addEventListener('want:chapter-ending', (event: Event) => {
     game = undefined;
   }
   destroyCutscenePlayer();
+  destroyRescueFailedScreen();
   preview.hidden = true;
   menu.hidden = true;
   hordeLobbySection.hidden = true;
@@ -1229,6 +1270,7 @@ window.addEventListener('want:horde-finished', (event: Event) => {
       const nextConfig: HordeConfig = {
         ...config,
         mapChoice: lastHordeConfig?.mapChoice ?? config.mapChoice,
+        initialWeapon: lastHordeConfig?.initialWeapon ?? config.initialWeapon,
       };
       window.dispatchEvent(new CustomEvent('want:horde-restart', { detail: nextConfig }));
     },
@@ -1290,9 +1332,20 @@ if (cutsceneId) {
     }),
   );
 } else if (params.get('horde') === '1') {
+  warmGameModule();
   setView('horde-setup');
   hordeLobby.refresh();
+} else if (params.get('rescue') === '1') {
+  const diff = selectedDifficulty();
+  const rescueState: RunState = {
+    ...newRun(diff),
+    checkpoint: 'rescue-start',
+    rescueStatus: 'active',
+  };
+  void launchDevScene('rescue', `Rescue mission · ${difficultyRules[diff].label}`, rescueState);
 } else if (params.get('screen') === 'select') {
+  warmGameModule();
+  warmCriticalAssets();
   setView('select');
 } else if (params.get('autostart') === '1') {
   const diff = selectedDifficulty();
